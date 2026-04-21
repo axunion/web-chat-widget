@@ -1,0 +1,24 @@
+{
+  "name": "web-chat-widget",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "check": "biome check ./src",
+    "check:write": "biome check --write ./src",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.12",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.9",
+    "vitest": "^4.1.4"
+  },
+  "volta": {
+    "node": "24.15.0"
+  }
+}
