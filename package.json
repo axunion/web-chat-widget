@@ -3,9 +3,27 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./element": {
+      "types": "./dist/element.d.ts",
+      "import": "./dist/element.js"
+    },
+    "./adapters": {
+      "types": "./dist/adapters/index.d.ts",
+      "import": "./dist/adapters.js"
+    }
+  },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build && vite build --mode iife && tsc -p tsconfig.build.json && node scripts/rewrite-dts-extensions.mjs",
+    "typecheck": "tsc",
     "preview": "vite preview",
     "check": "biome check ./src",
     "check:write": "biome check --write ./src",

@@ -48,9 +48,7 @@ export class ChatWidget extends HTMLElement {
 	}
 
 	static mount(options: ChatWidgetOptions): ChatWidget {
-		if (!customElements.get("chat-widget")) {
-			customElements.define("chat-widget", ChatWidget);
-		}
+		defineChatWidget();
 		const widget = new ChatWidget(options);
 		(options.target ?? document.body).appendChild(widget);
 		return widget;
@@ -290,5 +288,11 @@ export class ChatWidget extends HTMLElement {
 	private applyLabels(): void {
 		this.fab.applyLabels(this.labels);
 		this.panel.applyLabels(this.labels);
+	}
+}
+
+export function defineChatWidget(): void {
+	if (!customElements.get("chat-widget")) {
+		customElements.define("chat-widget", ChatWidget);
 	}
 }

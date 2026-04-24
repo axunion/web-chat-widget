@@ -1,10 +1,9 @@
 import type { ChatWidgetOptions } from "../../src/index.ts";
 import { ChatWidget } from "../../src/index.ts";
+import { defineChatWidget } from "../../src/ui/widget.ts";
 
 export function registerChatWidget(): void {
-	if (!customElements.get("chat-widget")) {
-		customElements.define("chat-widget", ChatWidget);
-	}
+	defineChatWidget();
 }
 
 // happy-dom's [part~="..."] selector does not strictly follow the CSS
