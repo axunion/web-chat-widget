@@ -14,6 +14,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.12",
+    "happy-dom": "^20.9.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.9",
     "vitest": "^4.1.4"
