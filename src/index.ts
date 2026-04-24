@@ -15,3 +15,10 @@ export type {
 export { createMessage } from "./core/messages.ts";
 export type { ThemeToken } from "./core/theme.ts";
 export { renderThemeCss, THEME_TOKENS } from "./core/theme.ts";
+export type {
+	ChatWidgetApiMode,
+	ChatWidgetOptions,
+	ChatWidgetPosition,
+	ChatWidgetTheme,
+} from "./ui/widget.ts";
+export { ChatWidget } from "./ui/widget.ts";

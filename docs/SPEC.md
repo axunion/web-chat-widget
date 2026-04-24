@@ -131,6 +131,7 @@ IIFE ビルドでは `window.ChatWidget` にクラス本体と `ChatWidget.adapt
 
 - `api-url` / `api-mode` を指定すると、内部で `createOpenAISseAdapter` または `createJsonAdapter` を自動構築する
 - より高度な制御（ヘッダー付与・完全な差し替え）は JS API 経由で行う
+- `api-url` / `api-mode` は **mount 後の属性変更を反映しない**。再設定したい場合は JS API で adapter を差し替えるか、要素を一度 detach して作り直す。他の属性 (`open` / `position` / `locale` / `theme`) は実行時変更に追随する
 
 #### 4.1.2 使用例
 
@@ -291,6 +292,9 @@ export interface ChatWidgetOptions {
 | 画像 `![](...)` | × |
 | 生 HTML | × |
 | シンタックスハイライト | × |
+
+- Markdown パイプラインは **`assistant` および `system` ロールのメッセージにのみ適用**する
+- `user` ロールはプレーンテキストとして描画する（`textContent` のみ）。利用者入力を Markdown 解釈することで生じるエスケープ不一致や UX 上の驚きを避けるため
 
 ### 6.3 サニタイズ方針
 
@@ -625,6 +629,8 @@ docs/
   - `EventTarget` を継承したイベント発火
   - `sendMessage(text)`, `clear()`, `retry()` などの操作メソッド
 - UI (`src/ui/widget.ts`) は `ChatEngine` のインスタンスを受け取り、DOM を描画するだけ
+- UI が engine の状態変化を観察する経路は、`src/ui/observable-engine.ts` に置く軽量ラッパーに統一する。ラッパーは `sendMessage` / `retry` をラップし、送信中のみ `requestAnimationFrame` でバッチした `subscribe(cb): () => void` を公開する。これは v2 の React ラッパーが `useSyncExternalStore(subscribe, getSnapshot)` にそのまま接続できる形でもある
+- `ChatEngine` 自体には `"update"` 相当の状態変化イベントを追加しない。公開イベントは SPEC §4.3 の 5 種 (`ready` / `open` / `close` / `message` / `error`) に限定する
 
 ### 13.2 React 版 (v2)
 
