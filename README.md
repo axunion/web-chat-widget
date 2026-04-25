@@ -2,7 +2,7 @@
 
 A distributable package that embeds a floating AI chat UI into any web page. Zero runtime dependencies, built on web standards only.
 
-> **Status**: specification draft. No implementation yet. The authoritative design document is [docs/SPEC.md](./docs/SPEC.md). Usage examples will be added to this README once the public API is implemented and stable.
+> **Status**: pre-release. Core, adapters, UI, declarative entry, IIFE bundle, and the library-mode build pipeline are in place; the demo at `pnpm dev` runs against a mock streaming adapter. The authoritative design document is [docs/SPEC.md](./docs/SPEC.md). Public API is settling but the version stays below `1.0.0` until the v1 milestone is cut.
 
 ## Highlights
 

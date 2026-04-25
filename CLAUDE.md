@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `web-chat-widget` は、任意の Web ページに埋め込み可能なフローティング型 AI チャット UI の配布パッケージ。依存ゼロ・Web 標準のみで構成し、npm import と `<script>` タグ埋め込みの両方に対応する。
 
-**現状**: 仕様策定済み・実装はこれから。`src/` には Vite ボイラープレート (`main.ts` / `counter.ts`) が残っている段階で、プロダクション実装はまだない。実装時は [docs/SPEC.md](./docs/SPEC.md) を単一の情報源とすること。
+**現状**: コア層・アダプタ層・UI 層・宣言的エントリ (`element.ts`) / IIFE エントリ (`iife.ts`) が実装済み。Vite library mode のビルドパイプライン（ESM + IIFE + `.d.ts`）と demo ページ（`index.html` + `src/main.ts`）も稼働。残りは SPEC §16 の v1 非ゴール項目および §4.2.3 の `clear()` メソッド未実装ぐらい。仕様判断は [docs/SPEC.md](./docs/SPEC.md) を単一の情報源とすること。
 
 ## 開発コマンド
 
@@ -14,8 +14,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | コマンド | 用途 |
 | --- | --- |
-| `pnpm dev` | Vite dev server。現状は Vite ボイラープレート画面。実装後は demo ページ |
-| `pnpm build` | `tsc && vite build`。library mode への切り替えは未実装 (SPEC §12 参照) |
+| `pnpm dev` | Vite dev server。`<chat-widget>` を mock streaming adapter で動かす demo ページを配信 |
+| `pnpm build` | ESM library → IIFE → `.d.ts` emit → `.d.ts` 内 `.ts` → `.js` 書換の 4 step。`vite build && vite build --mode iife && tsc -p tsconfig.build.json && node scripts/rewrite-dts-extensions.mjs` |
+| `pnpm typecheck` | `tsc` (noEmit) で型チェックのみ。`src/` 全体が対象 |
 | `pnpm check` | Biome で lint / format チェック |
 | `pnpm check:write` | Biome で自動修正 |
 | `pnpm test` | Vitest を 1 回実行 |
@@ -36,15 +37,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## エントリポイントと配布
 
-SPEC §3, §12 で確定済みの構成。実装時はこれを守る。
+SPEC §3, §12 で確定した構成を実装済み。
 
 - `src/index.ts` — 副作用なし。`ChatWidget` クラスと型を export
-- `src/element.ts` — 副作用で `customElements.define('chat-widget', …)` を実行
+- `src/element.ts` — `defineChatWidget()` を呼ぶだけの副作用エントリ
 - `src/adapters/index.ts` — `createOpenAISseAdapter` / `createJsonAdapter`
-- `src/iife.ts` — IIFE ビルド用。`window.ChatWidget` を組み立てる
-- `package.json` の `exports` は `"."` / `"./element"` / `"./adapters"` / `"./react"` (v2 予約)
-
-`dev` / `build` の両立のため、`vite.config.ts` は未作成だが library mode を想定。demo ページは現行 `index.html` + `src/main.ts` を書き換えて使う方針。
+- `src/iife.ts` — IIFE ビルド用。`window.ChatWidget` に class、`ChatWidget.adapters` に名前空間を attach
+- `package.json` の `exports` は `"."` / `"./element"` / `"./adapters"` の 3 つ。`"./react"` は v2 で実体ファイルと同時に追加（未実装の path を public exports に晒さない方針）
+- `vite.config.ts` は `defineConfig(({ mode }) => ...)` で ESM (`mode` 既定) と IIFE (`mode === "iife"`) を分岐。demo ページは ESM build から外れる library mode により dist に流入しない
+- `tsconfig.build.json` で `declaration: true` / `emitDeclarationOnly: true` / `rewriteRelativeImportExtensions: true`、ただし TS 6.x は declaration 出力に `rewriteRelativeImportExtensions` を適用しないため `scripts/rewrite-dts-extensions.mjs` で post-process
 
 ## ドキュメント参照
 

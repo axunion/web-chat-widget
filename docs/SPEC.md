@@ -1,6 +1,6 @@
 # web-chat-widget 仕様書
 
-> Version: draft-1 / 最終更新: 2026-04-23
+> Version: draft-1 / 最終更新: 2026-04-25
 
 本ドキュメントは、Web ページに埋め込み可能な AI チャット UI パッケージ `web-chat-widget` の設計仕様書である。実装着手の前段に合意しておくべき事項を一式まとめる。
 
@@ -82,18 +82,18 @@
   "types": "./dist/index.d.ts",
   "files": ["dist"],
   "exports": {
-    ".":          { "import": "./dist/index.js",    "types": "./dist/index.d.ts" },
-    "./element":  { "import": "./dist/element.js",  "types": "./dist/element.d.ts" },
-    "./adapters": { "import": "./dist/adapters.js", "types": "./dist/adapters.d.ts" },
-    "./react":    { "import": "./dist/react.js",    "types": "./dist/react.d.ts" }  // v2 予約
+    ".":          { "types": "./dist/index.d.ts",          "import": "./dist/index.js" },
+    "./element":  { "types": "./dist/element.d.ts",        "import": "./dist/element.js" },
+    "./adapters": { "types": "./dist/adapters/index.d.ts", "import": "./dist/adapters.js" }
+    // "./react" は v2 で実体ファイルと同時に追加。未実装の path を exports に出さない方針
   }
 }
 ```
 
 - `"."` は `ChatWidget` クラスと各 API 型を export する（副作用なし = import しただけでは何も起きない）
 - `"./element"` は import するだけで `customElements.define('chat-widget', …)` を実行する
-- `"./adapters"` は `createOpenAISseAdapter` / `createJsonAdapter` を export
-- `"./react"` は v2 以降のためのプレースホルダ
+- `"./adapters"` は `createOpenAISseAdapter` / `createJsonAdapter` を export。types パスが `dist/adapters/index.d.ts` なのは Vite が `entry: { adapters: "src/adapters/index.ts" }` で `dist/adapters.js` をフラットに出す一方、tsc は `rootDir: src` 配下のフォルダ構造を保つため `dist/adapters/index.d.ts` に declaration が出るため
+- `"./react"` は v2 で React ラッパーを公開する際に同時追加する
 
 ### 3.3 CDN 埋め込みの使用例
 
@@ -572,8 +572,9 @@ interface LabelDictionary {
 ### 12.2 TypeScript 型定義
 
 - 現行 `tsconfig.json` は `noEmit: true` のまま（Vite 開発用）
-- 型定義生成は `tsconfig.build.json` を別立てし、`declaration: true` / `emitDeclarationOnly: true` / `outDir: dist` で `.d.ts` のみ出す
-- `npm run build` が Vite ビルドと型生成の両方を走らせる
+- 型定義生成は `tsconfig.build.json` を別立てし、`declaration: true` / `emitDeclarationOnly: true` / `outDir: dist` / `rootDir: src` で `.d.ts` のみ出す。`exclude` で demo エントリ (`src/main.ts`) を除外
+- `rewriteRelativeImportExtensions: true` を設定するが、TypeScript 6.x は **JS 出力にしか拡張子書換を適用しない**（declaration 出力には `from "./foo.ts"` が残る）。これを補うため `scripts/rewrite-dts-extensions.mjs` を post-process として走らせ、`dist/**/*.d.ts` の `from`/`import` 文中の相対 `.ts` を `.js` に書き換える
+- `npm run build` は次の 4 step を順次実行: `vite build`（ESM）→ `vite build --mode iife`（IIFE バンドル）→ `tsc -p tsconfig.build.json`（`.d.ts` 出力）→ `node scripts/rewrite-dts-extensions.mjs`（拡張子書換）
 
 ### 12.3 demo ページの扱い
 
@@ -665,11 +666,19 @@ Vitest + happy-dom で以下を対象とする。
 | 対象 | テスト内容 |
 | --- | --- |
 | `core/engine.ts` | send → messages 更新、エラー時の遷移、`clear` / `destroy` |
+| `core/events.ts` | `createChatEvent` の `CustomEvent` 形状と `detail` 型 |
+| `core/i18n.ts` | locale 解決（`navigator.language` フォールバック / 明示指定）、`messages` の部分上書き |
 | `core/markdown.ts` | 対応記法の変換、未対応記法のエスケープ、長大入力、XSS ペイロード |
+| `core/messages.ts` | `Message` 型生成と ID ユニーク性 |
 | `core/sanitize.ts` | リンクスキーム判定（https/http 許可、javascript/data 拒否） |
+| `core/theme.ts` | `THEME_TOKENS` 一覧、`renderThemeCss` の出力構造 |
 | `adapters/openai-sse.ts` | SSE チャンクのパース、`[DONE]` 終了、エラー遷移、`AbortSignal` での中断 |
 | `adapters/json.ts` | 単発レスポンス、`extract` カスタマイズ、エラー |
-| `ui/widget.ts` | attach / detach、属性 → プロパティ反映、`::part` 付与、Shadow root 存在 |
+| `adapters/sse-parse.ts` | 行バッファリング、`data:` プリフィクス処理、空行終端 |
+| `ui/widget.ts` | attach / detach、属性 → プロパティ反映、`::part` 付与、Shadow root 存在、open/close、ストリーミング描画、Markdown 反映 |
+| `ui/observable-engine.ts` | `subscribe` のバッチング、`destroy` のクリーンアップ |
+| `element.ts` | import 副作用での `customElements.define`、再評価時の冪等性 |
+| `iife.ts` | `customElements.define` の bundled 副作用、default export === `ChatWidget`、`ChatWidget.adapters` への名前空間 attach |
 
 ### 14.2 ビジュアル / 手動
 
@@ -717,6 +726,9 @@ Vitest + happy-dom で以下を対象とする。
 ## Appendix B: 未決事項（仕様書更新の際に確定する）
 
 - npm パッケージ名と公開先レジストリ（候補: `web-chat-widget` / `@cocone/web-chat-widget`）
-- FAB に表示する既定アイコン（SVG インライン）
 - 公開 CSS Custom Properties の最終リスト（§7.2 のたたき台をレビュー後に確定）
 - 初期バージョン (`0.1.0` スタート想定)
+
+### 確定済み（決定の記録）
+
+- **FAB 既定アイコン**: Feather "message-square" スタイルの単一パス SVG（`M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z`）。`stroke="currentColor"` で `--cw-color-on-primary` を継承、`aria-hidden="true"`。実体は `src/ui/fab.ts` の `buildChatIcon()`。差し替え API（`messages` 辞書のアイコンスロット or 名前付きスロット）は将来検討
