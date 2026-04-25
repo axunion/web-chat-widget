@@ -1,60 +1,77 @@
+import "./element.ts";
 import "./style.css";
-import heroImg from "./assets/hero.png";
-import typescriptLogo from "./assets/typescript.svg";
-import viteLogo from "./assets/vite.svg";
-import { setupCounter } from "./counter.ts";
+import type { ChatAdapter } from "./index.ts";
+import { ChatWidget } from "./index.ts";
 
-document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+const sleep = (ms: number): Promise<void> =>
+	new Promise((resolve) => {
+		setTimeout(resolve, ms);
+	});
 
-<div class="ticks"></div>
+const CANNED = [
+	"こんにちは！**web-chat-widget** のデモ応答です。",
+	"",
+	"サポートしている Markdown の例:",
+	"",
+	"- 箇条書き",
+	"- `inline code`",
+	"- [リンク](https://example.com) は http(s) のみ許可",
+	"",
+	"```",
+	"code block",
+	"```",
+	"",
+	"_italic_ と **bold** も使えます。",
+].join("\n");
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+function createDemoAdapter(): ChatAdapter {
+	return {
+		async *send(_messages, signal) {
+			await sleep(400);
+			for (const ch of CANNED) {
+				if (signal.aborted) return;
+				await sleep(12);
+				yield { type: "text-delta", delta: ch };
+			}
+			yield { type: "done" };
+		},
+	};
+}
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`;
+const widget = ChatWidget.mount({
+	adapter: createDemoAdapter(),
+	theme: "auto",
+	locale: "ja",
+	position: "bottom-right",
+});
 
-setupCounter(document.querySelector<HTMLButtonElement>("#counter")!);
+function bindRadios(name: string, apply: (value: string) => void): void {
+	for (const el of document.querySelectorAll<HTMLInputElement>(
+		`input[name="${name}"]`,
+	)) {
+		el.addEventListener("change", () => {
+			if (el.checked) apply(el.value);
+		});
+	}
+}
+
+bindRadios("theme", (v) => {
+	widget.setAttribute("theme", v);
+});
+bindRadios("locale", (v) => {
+	widget.setAttribute("locale", v);
+});
+bindRadios("position", (v) => {
+	widget.setAttribute("position", v);
+});
+
+document.querySelector("#open")?.addEventListener("click", () => {
+	widget.open();
+});
+document.querySelector("#close")?.addEventListener("click", () => {
+	widget.close();
+});
+document.querySelector("#send-hello")?.addEventListener("click", () => {
+	widget.open();
+	void widget.sendMessage("hello");
+});
