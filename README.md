@@ -2,7 +2,7 @@
 
 A distributable package that embeds a floating AI chat UI into any web page. Zero runtime dependencies, built on web standards only.
 
-> **Status**: pre-release. Core, adapters, UI, declarative entry, IIFE bundle, and the library-mode build pipeline are in place; the demo at `pnpm dev` runs against a mock streaming adapter. The authoritative design document is [docs/SPEC.md](./docs/SPEC.md). Public API is settling but the version stays below `1.0.0` until the v1 milestone is cut.
+> **Status**: pre-release. Core, adapters, UI, declarative entry, IIFE bundle, and the library-mode build pipeline are in place; the developer demo at `pnpm dev` and a production-shaped sample page at `pnpm demo` (fictional SaaS, IIFE via `<script>` tag) both run against a mock streaming adapter. The authoritative design document is [docs/SPEC.md](./docs/SPEC.md). Public API is settling but the version stays below `1.0.0` until the v1 milestone is cut.
 
 ## Highlights
 
@@ -22,11 +22,17 @@ A distributable package that embeds a floating AI chat UI into any web page. Zer
 
 ```bash
 pnpm install
-pnpm dev      # Vite dev server (demo page)
-pnpm build    # library build
+pnpm dev      # Vite dev server — developer demo (ESM, control panel, HMR)
+pnpm build    # library build (ESM + IIFE + .d.ts) and copy demo HTML to dist/
+pnpm demo     # build, then start a preview server hosting dist/
 pnpm check    # Biome lint / format check
 pnpm test     # Vitest unit tests
 ```
+
+Two demo pages exist:
+
+- `index.html` (`pnpm dev`) — developer-facing playground with theme/locale/position controls, wired up via ESM imports.
+- `demo/sample-service.html` (`pnpm demo`, or `pnpm preview` after a manual `pnpm build`) — fictional SaaS landing page that loads the built IIFE bundle through a `<script>` tag, mirroring how a third-party site would embed the widget. Open `http://localhost:4173/sample-service.html` in your browser once preview is running.
 
 Node version is pinned via Volta. See `package.json` for the exact scripts.
 

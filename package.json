@@ -22,9 +22,10 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build && vite build --mode iife && tsc -p tsconfig.build.json && node scripts/rewrite-dts-extensions.mjs",
+    "build": "vite build && vite build --mode iife && tsc -p tsconfig.build.json && node scripts/rewrite-dts-extensions.mjs && node scripts/copy-demo.mjs",
     "typecheck": "tsc",
     "preview": "vite preview",
+    "demo": "pnpm build && pnpm preview",
     "check": "biome check ./src",
     "check:write": "biome check --write ./src",
     "test": "vitest run",

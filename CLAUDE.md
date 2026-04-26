@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `web-chat-widget` は、任意の Web ページに埋め込み可能なフローティング型 AI チャット UI の配布パッケージ。依存ゼロ・Web 標準のみで構成し、npm import と `<script>` タグ埋め込みの両方に対応する。
 
-**現状**: コア層・アダプタ層・UI 層・宣言的エントリ (`element.ts`) / IIFE エントリ (`iife.ts`) が実装済み。Vite library mode のビルドパイプライン（ESM + IIFE + `.d.ts`）と demo ページ（`index.html` + `src/main.ts`）も稼働。残りは SPEC §16 の v1 非ゴール項目および §4.2.3 の `clear()` メソッド未実装ぐらい。仕様判断は [docs/SPEC.md](./docs/SPEC.md) を単一の情報源とすること。
+**現状**: コア層・アダプタ層・UI 層・宣言的エントリ (`element.ts`) / IIFE エントリ (`iife.ts`) が実装済み。Vite library mode のビルドパイプライン（ESM + IIFE + `.d.ts`）と 2 種類の demo ページ — 開発者向け playground (`index.html` + `src/main.ts`、`pnpm dev`) と production-shaped 架空 SaaS サンプル (`demo/sample-service.html`、`pnpm demo` で IIFE を `<script>` タグ経由で読み込む) — も稼働。残りは SPEC §16 の v1 非ゴール項目および §4.2.3 の `clear()` メソッド未実装ぐらい。仕様判断は [docs/SPEC.md](./docs/SPEC.md) を単一の情報源とすること。
 
 ## 開発コマンド
 
@@ -14,8 +14,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | コマンド | 用途 |
 | --- | --- |
-| `pnpm dev` | Vite dev server。`<chat-widget>` を mock streaming adapter で動かす demo ページを配信 |
-| `pnpm build` | ESM library → IIFE → `.d.ts` emit → `.d.ts` 内 `.ts` → `.js` 書換の 4 step。`vite build && vite build --mode iife && tsc -p tsconfig.build.json && node scripts/rewrite-dts-extensions.mjs` |
+| `pnpm dev` | Vite dev server。`index.html` + `src/main.ts` (ESM 直 import) で開発者向け playground を配信。HMR / コントロールパネル付き |
+| `pnpm build` | ESM library → IIFE → `.d.ts` emit → `.d.ts` 内 `.ts` → `.js` 書換 → `demo/*.html` を `dist/` にコピー、の 5 step。`vite build && vite build --mode iife && tsc -p tsconfig.build.json && node scripts/rewrite-dts-extensions.mjs && node scripts/copy-demo.mjs` |
+| `pnpm preview` | `vite preview` で `dist/` を root に配信。build 済み IIFE と demo HTML を実機確認できる (`http://localhost:4173/sample-service.html` 等を任意のブラウザで開く) |
+| `pnpm demo` | `pnpm build && pnpm preview`。build から preview 起動まで一気通貫 |
 | `pnpm typecheck` | `tsc` (noEmit) で型チェックのみ。`src/` 全体が対象 |
 | `pnpm check` | Biome で lint / format チェック |
 | `pnpm check:write` | Biome で自動修正 |
@@ -44,7 +46,8 @@ SPEC §3, §12 で確定した構成を実装済み。
 - `src/adapters/index.ts` — `createOpenAISseAdapter` / `createJsonAdapter`
 - `src/iife.ts` — IIFE ビルド用。`window.ChatWidget` に class、`ChatWidget.adapters` に名前空間を attach
 - `package.json` の `exports` は `"."` / `"./element"` / `"./adapters"` の 3 つ。`"./react"` は v2 で実体ファイルと同時に追加（未実装の path を public exports に晒さない方針）
-- `vite.config.ts` は `defineConfig(({ mode }) => ...)` で ESM (`mode` 既定) と IIFE (`mode === "iife"`) を分岐。demo ページは ESM build から外れる library mode により dist に流入しない
+- `vite.config.ts` は `defineConfig(({ mode }) => ...)` で ESM (`mode` 既定) と IIFE (`mode === "iife"`) を分岐。dev / preview とも `publicDir: false`。library mode の build に demo は混ざらず、`scripts/copy-demo.mjs` が最後に `demo/*.html` を `dist/` にコピーすることで `vite preview` から配信される
+- `demo/sample-service.html` は `<script src="./chat-widget.iife.js?v=...">` で配布物 IIFE を読む production-shaped サンプル。コピー先 (`dist/sample-service.html`) と並べて配置されるため相対パスで解決する
 - `tsconfig.build.json` で `declaration: true` / `emitDeclarationOnly: true` / `rewriteRelativeImportExtensions: true`、ただし TS 6.x は declaration 出力に `rewriteRelativeImportExtensions` を適用しないため `scripts/rewrite-dts-extensions.mjs` で post-process
 
 ## ドキュメント参照

@@ -45,8 +45,7 @@ body {
 	margin: 0;
 }
 
-.panel,
-.interference {
+.panel {
 	margin-top: 40px;
 	padding: 24px;
 	background: var(--surface);
@@ -54,8 +53,7 @@ body {
 	border-radius: 14px;
 }
 
-.panel h2,
-.interference h2 {
+.panel h2 {
 	margin: 0 0 8px;
 	font-size: 20px;
 }
@@ -106,37 +104,4 @@ body {
 .actions button:hover {
 	border-color: var(--accent);
 	color: var(--accent);
-}
-
-.interference .chaos {
-	margin-top: 16px;
-	padding: 24px;
-	border-radius: 10px;
-	background: repeating-linear-gradient(
-		45deg,
-		#fde047,
-		#fde047 10px,
-		#fbbf24 10px,
-		#fbbf24 20px
-	);
-	font-family: "Comic Sans MS", "Chalkboard SE", cursive;
-}
-
-.interference .chaos * {
-	color: #b91c1c;
-	border: 3px dashed #7c3aed;
-	letter-spacing: 0.1em;
-}
-
-.interference .chaos button {
-	transform: rotate(-2deg);
-	font-size: 20px;
-	padding: 12px 18px;
-	background: #fef3c7;
-}
-
-.interference .chaos p {
-	background: #fff;
-	padding: 12px;
-	font-size: 22px;
 }
