@@ -100,6 +100,27 @@ SPEC §3, §12 で確定した構成を実装済み。
 | [zero-deps.md](./.claude/rules/zero-deps.md) | `package.json`, `src/**/*.ts` |
 | [tests.md](./.claude/rules/tests.md) | `tests/**`, `vitest.config.*` |
 
+## ハーネス自動化
+
+TDD サイクル以外の品質ゲートとして、`.claude/settings.json` に hooks と追加のサブエージェント / skill を登録している。MCP server は会社方針により利用しない。
+
+### hooks (PostToolUse, matcher: `Edit|Write`)
+
+Edit / Write ツール完了後に harness 側で実行される。
+
+| hook | 役割 |
+| --- | --- |
+| zero-deps invariant guard | `package.json` 編集後に `dependencies` / `peerDependencies` が空でないと `systemMessage` で警告。SPEC §11.5 と [.claude/rules/zero-deps.md](./.claude/rules/zero-deps.md) を harness レベルで強制 |
+| Biome auto-check | `src/**/*.{ts,tsx,js}` を編集すると `pnpm exec biome check --write` が自動で走る。`pnpm check` を都度思い出す必要がない |
+
+### 追加サブエージェント
+
+- [bundle-size-checker](./.claude/agents/bundle-size-checker.md) — `pnpm build` 後に `dist/chat-widget.iife.js` の raw / gzip サイズを [bundle-size-baseline.json](./bundle-size-baseline.json) と比較し、`thresholdPct` を超えた場合に Blocker / Risk として報告 (security-reviewer と同じ 3 段階出力)。読み取り専用 — ベースライン更新は人間判断 (意図的に増えた場合は値を書き換えて commit)
+
+### 追加 skill
+
+- [`/spec-sync`](./.claude/skills/spec-sync/SKILL.md) — SPEC.md (§3, §4, §6, §7, §8, §11, §16) と `src/` を grep で照合し、`match` / `missing in src` / `extra in src` / `divergent` のドリフト表を出力。`disable-model-invocation: true` で user-only。リリース前や大規模 refactor 後に手動実行
+
 ## コードスタイル
 
 - Biome を採用 (`biome.json` はデフォルト設定)。`pnpm check` が通ることが前提
