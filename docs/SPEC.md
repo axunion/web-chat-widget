@@ -574,15 +574,17 @@ interface LabelDictionary {
 - 現行 `tsconfig.json` は `noEmit: true` のまま（Vite 開発用）
 - 型定義生成は `tsconfig.build.json` を別立てし、`declaration: true` / `emitDeclarationOnly: true` / `outDir: dist` / `rootDir: src` で `.d.ts` のみ出す。`exclude` で demo エントリ (`src/main.ts`) を除外
 - `rewriteRelativeImportExtensions: true` を設定するが、TypeScript 6.x は **JS 出力にしか拡張子書換を適用しない**（declaration 出力には `from "./foo.ts"` が残る）。これを補うため `scripts/rewrite-dts-extensions.mjs` を post-process として走らせ、`dist/**/*.d.ts` の `from`/`import` 文中の相対 `.ts` を `.js` に書き換える
-- `npm run build` は次の 4 step を順次実行: `vite build`（ESM）→ `vite build --mode iife`（IIFE バンドル）→ `tsc -p tsconfig.build.json`（`.d.ts` 出力）→ `node scripts/rewrite-dts-extensions.mjs`（拡張子書換）
+- `npm run build` は次の 5 step を順次実行: `vite build`（ESM）→ `vite build --mode iife`（IIFE バンドル）→ `tsc -p tsconfig.build.json`（`.d.ts` 出力）→ `node scripts/rewrite-dts-extensions.mjs`（拡張子書換）→ `node scripts/copy-demo.mjs`（`demo/*.html` を `dist/` にコピーして preview から配信できるようにする）
 
 ### 12.3 demo ページの扱い
 
-- 現状の `index.html` / `src/main.ts` はライブラリ本体に残さない
-- `index.html` と `src/main.ts` は **demo 用に書き換え**、`<chat-widget>` を実際に動かして確認するショーケースとする
-- `vite dev` でこの demo が立ち上がる
-- `npm run build` は demo を成果物に含めない（library mode を優先）
-- 必要なら `demo/` ディレクトリに隔離する案もあり。v1 では `index.html` の書き換えで対応する
+役割分担した 2 種類の demo を持つ:
+
+- **`index.html` + `src/main.ts`** — 開発者向けプレイグラウンド。`vite dev` (= `pnpm dev`) で立ち上がり、ESM 直 import で動く。テーマ / ロケール / 位置のコントロールパネルや `open()` / `close()` / `sendMessage()` の動作確認に使う
+- **`demo/sample-service.html`** — エンドユーザー視点の production-shaped デモ。架空 SaaS のランディングを模した HTML で、`<script src="./chat-widget.iife.js">` で配布物の IIFE を直接読み込み、第三者サイト埋め込みと同じパスを再現する。`pnpm preview` (=`vite preview`、root が `dist/`) から配信する想定で、`scripts/copy-demo.mjs` が build 末尾で `demo/*.html` を `dist/` にコピーする
+- `npm run build` は library 本体だけ出力する方針を維持しつつ、コピー後の demo HTML を `dist/` 内に同梱して preview を即座に試せるようにする
+- `pnpm demo` (= `pnpm build && pnpm preview`) で build から preview 起動まで一気通貫。確認は任意のブラウザで `http://localhost:4173/sample-service.html` を開く
+- IIFE のファイル名は固定 (`chat-widget.iife.js`) なので、demo HTML 側で `?v=YYYYMMDD` クエリを付けてキャッシュ衝突を避ける慣行
 
 ### 12.4 ディレクトリ構成（想定）
 
@@ -613,6 +615,11 @@ src/
     sse-parse.ts           # SSE 行パーサ
 tests/
   ...
+demo/
+  sample-service.html      # 架空 SaaS の production-shaped サンプル (preview 用、IIFE 直読み)
+scripts/
+  rewrite-dts-extensions.mjs  # build 後に .d.ts の .ts → .js を書換
+  copy-demo.mjs               # build 後に demo/*.html を dist/ にコピー
 docs/
   SPEC.md                  # 本書
   examples/                # カスタムアダプタ例（将来）
@@ -682,8 +689,8 @@ Vitest + happy-dom で以下を対象とする。
 
 ### 14.2 ビジュアル / 手動
 
-- 現 Vite SPA を demo ページ化し、実際の `<chat-widget>` を複数パターンで表示する
-- 外部サイト埋め込みシミュレーション用に、demo ページ自体が大胆なグローバル CSS を持つセクションを 1 つ設ける（CSS 干渉耐性の確認）
+- 現 Vite SPA (`index.html` + `src/main.ts`) を開発者向け demo ページ化し、実際の `<chat-widget>` を複数の attribute 組み合わせで表示する
+- 外部サイト埋め込みのシミュレーションは `demo/sample-service.html` (架空 SaaS) で行い、`pnpm demo` から build 済み IIFE を `<script>` タグ経由で読み込んだ実運用に近い状態で Shadow DOM の独立性 / Markdown レンダリング / ストリーミング挙動を目視確認する
 
 ### 14.3 E2E
 
