@@ -2,6 +2,23 @@
 	"enableAllProjectMcpServers": false,
 	"enabledMcpjsonServers": [],
 	"allowedMcpServers": [],
+	"hooks": {
+		"PostToolUse": [
+			{
+				"matcher": "Edit|Write",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "input=$(cat); f=$(echo \"$input\" | jq -r '.tool_input.file_path // .tool_response.filePath // \"\"'); case \"$f\" in */package.json|package.json) [ -f \"$f\" ] && jq -e '((.dependencies // {}) | length) + ((.peerDependencies // {}) | length) > 0' \"$f\" >/dev/null 2>&1 && echo '{\"systemMessage\":\"⚠ Zero-deps invariant violated: package.json now declares runtime dependencies. Per .claude/rules/zero-deps.md and SPEC §11.5, dependencies and peerDependencies must stay empty.\"}' ;; esac; true"
+					},
+					{
+						"type": "command",
+						"command": "input=$(cat); f=$(echo \"$input\" | jq -r '.tool_input.file_path // .tool_response.filePath // \"\"'); case \"$f\" in */src/*.ts|*/src/*.tsx|*/src/*.js) (cd \"$(git rev-parse --show-toplevel 2>/dev/null || echo .)\" && pnpm exec biome check --write \"$f\" >/dev/null 2>&1) ;; esac; true"
+					}
+				]
+			}
+		]
+	},
 	"permissions": {
 		"allow": [
 			"Bash(git *)",

@@ -1,0 +1,8 @@
+{
+  "_comment": "Baseline sizes for dist/ artifacts. Updated manually after a deliberate change. Used by .claude/agents/bundle-size-checker.md to detect regressions. Run `pnpm build && gzip -c dist/<file> | wc -c` to recompute.",
+  "chat-widget.iife.js": {
+    "raw": 27768,
+    "gzip": 8923,
+    "thresholdPct": 5
+  }
+}
