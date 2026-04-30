@@ -37,6 +37,6 @@ These rules apply inside `src/ui/` and the Custom Element entry points. Violatin
 
 ## Accessibility
 
-- Panel is **non-modal** (`role="complementary"`, no `aria-modal`, no focus trap). See SPEC §9.
+- Panel is **non-modal** (`role="complementary"`, no `aria-modal`, no focus trap). See SPEC §10.
 - Message log uses a two-container pattern (`aria-live="polite"` only on the committed-messages container; streaming container is silent) to avoid screen-reader spam during delta updates.
 - Keyboard: Enter = send, Shift+Enter = newline, Esc = close panel.

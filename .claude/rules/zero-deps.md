@@ -6,7 +6,7 @@ paths:
 
 # Zero runtime dependencies
 
-This package ships with **no runtime dependencies**. It's a headline feature (see SPEC §1.2 and §11.5) and the main reason it can be embedded anywhere without supply-chain surprises.
+This package ships with **no runtime dependencies**. It's a headline feature (see SPEC §1.2 and §12.5) and the main reason it can be embedded anywhere without supply-chain surprises.
 
 ## Hard rules
 
@@ -23,7 +23,7 @@ This package ships with **no runtime dependencies**. It's a headline feature (se
 - `happy-dom` (test environment — added when tests start requiring it)
 - `@testing-library/dom` (test helper — optional; add only if tests genuinely need it)
 
-Anything else needs justification. Before adding a new devDependency, update SPEC §11.5 with the reason.
+Anything else needs justification. Before adding a new devDependency, update SPEC §12.5 with the reason.
 
 ## When editing `package.json`
 

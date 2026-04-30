@@ -6,7 +6,7 @@ paths:
 
 # Test authoring rules
 
-Applies when touching anything under `tests/` or the Vitest config. The project is TDD-driven (see CLAUDE.md and SPEC §14.0) — tests are first-class.
+Applies when touching anything under `tests/` or the Vitest config. The project is TDD-driven (see CLAUDE.md and SPEC §15.1) — tests are first-class.
 
 ## Style
 

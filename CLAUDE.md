@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `web-chat-widget` は、任意の Web ページに埋め込み可能なフローティング型 AI チャット UI の配布パッケージ。依存ゼロ・Web 標準のみで構成し、npm import と `<script>` タグ埋め込みの両方に対応する。
 
-**現状**: コア層・アダプタ層・UI 層・宣言的エントリ (`element.ts`) / IIFE エントリ (`iife.ts`) が実装済み。Vite library mode のビルドパイプライン（ESM + IIFE + `.d.ts`）と 2 種類の demo ページ — 開発者向け playground (`index.html` + `src/main.ts`、`pnpm dev`) と production-shaped 架空 SaaS サンプル (`demo/sample-service.html`、`pnpm demo` で IIFE を `<script>` タグ経由で読み込む) — も稼働。残りは SPEC §16 の v1 非ゴール項目および §4.2.3 の `clear()` メソッド未実装ぐらい。仕様判断は [docs/SPEC.md](./docs/SPEC.md) を単一の情報源とすること。
+**現状**: コア層・アダプタ層・UI 層・宣言的エントリ (`element.ts`) / IIFE エントリ (`iife.ts`) が実装済み。Vite library mode のビルドパイプライン（ESM + IIFE + `.d.ts`）と 2 種類の demo ページ — 開発者向け playground (`index.html` + `src/main.ts`、`pnpm dev`) と production-shaped 架空 SaaS サンプル (`demo/sample-service.html`、`pnpm demo` で IIFE を `<script>` タグ経由で読み込む) — も稼働。残りは SPEC §9 の ChatStore (履歴永続化、🚧) と §4 の `ChatWidget.clear()` / `retry()` 公開 (engine 側にロジックは存在、widget メソッドの公開はこれから)。設計判断は [docs/SPEC.md](./docs/SPEC.md)、API シグネチャは [docs/API.md](./docs/API.md) を単一の情報源とすること。
 
 ## 開発コマンド
 
@@ -32,30 +32,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **ランタイム依存ゼロ**。`dependencies` / `peerDependencies` を増やさない。Markdown パーサ・SSE パーサなども自前で書く
 - **UI は Shadow DOM 内に閉じる**。外部 CSS 干渉を遮断するため `Custom Element + Shadow DOM` を採用。スタイルは JS バンドル内に文字列として埋め込み、Shadow Root 内に `<style>` として注入する
-- **Engine / UI 分離**。`src/core/engine.ts` は DOM 非依存のロジック層（状態・adapter 呼び出し・`EventTarget` 継承）。UI (`src/ui/`) は Engine を受け取って描画するだけ。v2 の React ラッパーで Engine を再利用するための前提
+- **Engine / UI 分離**。`src/core/engine.ts` は DOM 非依存のロジック層（状態・adapter 呼び出し・`EventTarget` 継承）。UI (`src/ui/`) は Engine を受け取って描画するだけ。将来の React ラッパーで Engine を再利用するための前提
 - **アダプタインターフェース**: `send(messages, signal): AsyncIterable<AdapterChunk>` に統一。ストリーミング / 非ストリーミングとも同じ形で扱う
 - **非モーダル**。パネルを開いても背景ページの操作を塞がない。`role="complementary"`、`aria-modal` は付けない、フォーカストラップなし
 - **XSS 対策**: `innerHTML` / `insertAdjacentHTML` を使わない。Markdown パーサはトークン列から `createElement` + `textContent` で DOM を組み立てる。リンクは `^https?://` のみ許可
 
 ## エントリポイントと配布
 
-SPEC §3, §12 で確定した構成を実装済み。
+SPEC §3, §13 で確定した構成を実装済み。
 
 - `src/index.ts` — 副作用なし。`ChatWidget` クラスと型を export
 - `src/element.ts` — `defineChatWidget()` を呼ぶだけの副作用エントリ
 - `src/adapters/index.ts` — `createOpenAISseAdapter` / `createJsonAdapter`
 - `src/iife.ts` — IIFE ビルド用。`window.ChatWidget` に class、`ChatWidget.adapters` に名前空間を attach
-- `package.json` の `exports` は `"."` / `"./element"` / `"./adapters"` の 3 つ。`"./react"` は v2 で実体ファイルと同時に追加（未実装の path を public exports に晒さない方針）
+- `package.json` の `exports` は `"."` / `"./element"` / `"./adapters"` の 3 つ。`"./react"` は将来 React ラッパーを公開する際に実体ファイルと同時に追加（未実装の path を public exports に晒さない方針）
 - `vite.config.ts` は `defineConfig(({ mode }) => ...)` で ESM (`mode` 既定) と IIFE (`mode === "iife"`) を分岐。dev / preview とも `publicDir: false`。library mode の build に demo は混ざらず、`scripts/copy-demo.mjs` が最後に `demo/*.html` を `dist/` にコピーすることで `vite preview` から配信される
 - `demo/sample-service.html` は `<script src="./chat-widget.iife.js?v=...">` で配布物 IIFE を読む production-shaped サンプル。コピー先 (`dist/sample-service.html`) と並べて配置されるため相対パスで解決する
 - `tsconfig.build.json` で `declaration: true` / `emitDeclarationOnly: true` / `rewriteRelativeImportExtensions: true`、ただし TS 6.x は declaration 出力に `rewriteRelativeImportExtensions` を適用しないため `scripts/rewrite-dts-extensions.mjs` で post-process
 
 ## ドキュメント参照
 
-- [docs/SPEC.md](./docs/SPEC.md) — 仕様の単一情報源。API 形状、Markdown 対応範囲、CSS 変数一覧、テスト戦略まですべてここにある
+- [docs/SPEC.md](./docs/SPEC.md) — 設計判断とアーキテクチャ不変条件の権威。各節に ✅ (実装済み) / 🚧 (仕様確定・未実装) のステータスバッジを付ける運用。Markdown 対応範囲・CSS 変数一覧・セキュリティ方針・将来検討項目はすべてここで決まる
+- [docs/API.md](./docs/API.md) — 公開 API リファレンス。型シグネチャ・属性表・メソッド表・イベント表・factory オプション・`LabelDictionary` 全 15 キー・`::part()` 一覧。SPEC §4 / §7 / §8 / §11 から抽出
 - [README.md](./README.md) — 外向けの Quick Start とサンプル
 
-仕様に関する判断は SPEC を更新してから実装すること。実装を先に進めて SPEC と乖離させない。
+仕様に関する判断は SPEC を更新してから実装すること。実装を先に進めて SPEC と乖離させない。新しい API シグネチャは API.md にも反映させる。
 
 ## テスト駆動開発 (TDD)
 
@@ -81,7 +82,7 @@ SPEC §3, §12 で確定した構成を実装済み。
 - `tests/core/markdown.test.ts` のように、`src/` のパスを `tests/` にミラー
 - 複数モジュールの結合テストは `tests/integration/` に集約
 - Vitest 環境は happy-dom（Custom Elements / Shadow DOM のため）
-- SPEC §14 と整合させる
+- SPEC §15 と整合させる
 
 ### 補助ツール
 
@@ -110,7 +111,7 @@ Edit / Write ツール完了後に harness 側で実行される。
 
 | hook | 役割 |
 | --- | --- |
-| zero-deps invariant guard | `package.json` 編集後に `dependencies` / `peerDependencies` が空でないと `systemMessage` で警告。SPEC §11.5 と [.claude/rules/zero-deps.md](./.claude/rules/zero-deps.md) を harness レベルで強制 |
+| zero-deps invariant guard | `package.json` 編集後に `dependencies` / `peerDependencies` が空でないと `systemMessage` で警告。SPEC §12.5 と [.claude/rules/zero-deps.md](./.claude/rules/zero-deps.md) を harness レベルで強制 |
 | Biome auto-check | `src/**/*.{ts,tsx,js}` を編集すると `pnpm exec biome check --write` が自動で走る。`pnpm check` を都度思い出す必要がない |
 
 ### 追加サブエージェント
@@ -119,16 +120,16 @@ Edit / Write ツール完了後に harness 側で実行される。
 
 ### 追加 skill
 
-- [`/spec-sync`](./.claude/skills/spec-sync/SKILL.md) — SPEC.md (§3, §4, §6, §7, §8, §11, §16) と `src/` を grep で照合し、`match` / `missing in src` / `extra in src` / `divergent` のドリフト表を出力。`disable-model-invocation: true` で user-only。リリース前や大規模 refactor 後に手動実行
+- [`/spec-sync`](./.claude/skills/spec-sync/SKILL.md) — SPEC.md (§3, §4, §6, §7, §8, §9 🚧, §12, §17) と `src/` を grep で照合し、`match` / `missing in src` / `extra in src` / `divergent` のドリフト表を出力。`disable-model-invocation: true` で user-only。リリース前や大規模 refactor 後に手動実行
 
 ## コードスタイル
 
 - Biome を採用 (`biome.json` はデフォルト設定)。`pnpm check` が通ることが前提
 - TypeScript 6 の strict + `verbatimModuleSyntax` + `erasableSyntaxOnly`。`import type` を正しく使う必要あり
-- `tsconfig.json` は `noEmit: true`。型定義生成は `tsconfig.build.json` を別立てする方針 (SPEC §12.2)
+- `tsconfig.json` は `noEmit: true`。型定義生成は `tsconfig.build.json` を別立てする方針 (SPEC §13.1 概要、詳細手順は本書「エントリポイントと配布」と `vite.config.ts`)
 
 ## 言語方針
 
 - **README、コミットメッセージ、コード内コメント、identifier はすべて英語で書く**
-- `docs/SPEC.md` と本 CLAUDE.md、ユーザーとの対話は日本語のまま
+- `docs/SPEC.md` / `docs/API.md` / 本 CLAUDE.md、ユーザーとの対話は日本語のまま
 - コード内コメントは最小限に留める（WHY が非自明な場合のみ）。英語で簡潔に書く

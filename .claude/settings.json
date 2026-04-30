@@ -9,7 +9,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "input=$(cat); f=$(echo \"$input\" | jq -r '.tool_input.file_path // .tool_response.filePath // \"\"'); case \"$f\" in */package.json|package.json) [ -f \"$f\" ] && jq -e '((.dependencies // {}) | length) + ((.peerDependencies // {}) | length) > 0' \"$f\" >/dev/null 2>&1 && echo '{\"systemMessage\":\"⚠ Zero-deps invariant violated: package.json now declares runtime dependencies. Per .claude/rules/zero-deps.md and SPEC §11.5, dependencies and peerDependencies must stay empty.\"}' ;; esac; true"
+						"command": "input=$(cat); f=$(echo \"$input\" | jq -r '.tool_input.file_path // .tool_response.filePath // \"\"'); case \"$f\" in */package.json|package.json) [ -f \"$f\" ] && jq -e '((.dependencies // {}) | length) + ((.peerDependencies // {}) | length) > 0' \"$f\" >/dev/null 2>&1 && echo '{\"systemMessage\":\"⚠ Zero-deps invariant violated: package.json now declares runtime dependencies. Per .claude/rules/zero-deps.md and SPEC §12.5, dependencies and peerDependencies must stay empty.\"}' ;; esac; true"
 					},
 					{
 						"type": "command",

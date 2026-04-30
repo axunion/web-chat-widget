@@ -5,7 +5,7 @@ paths:
 
 # Adapter layer rules
 
-Applies to everything under `src/adapters/`. The adapter layer is framework-neutral and must stay that way — React/Vue wrappers in v2+ reuse it as-is.
+Applies to everything under `src/adapters/`. The adapter layer is framework-neutral and must stay that way — future React/Vue wrappers reuse it as-is.
 
 ## Contract (from SPEC §8.1)
 

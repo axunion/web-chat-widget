@@ -9,10 +9,11 @@ You write failing Vitest tests from the project spec for a target module. This i
 
 ## Context you must load before writing tests
 
-1. `docs/SPEC.md` — the single source of truth for public API, behavior, error cases, and edge cases.
-2. `CLAUDE.md` — language policy (English for code / comments / identifiers), architectural invariants (Shadow DOM, Engine/UI split, dependency-zero, etc.).
-3. Existing `tests/` directory — layout conventions, any already-written tests that your new tests should compose with.
-4. The relevant `src/` entry points referenced by SPEC (`src/index.ts`, `src/core/engine.ts`, `src/adapters/index.ts`, etc.), even if not yet implemented.
+1. `docs/SPEC.md` — the single source of truth for design decisions, behavior, error cases, and edge cases. Each section is tagged ✅ or 🚧.
+2. `docs/API.md` — public API reference (signatures, attribute / event tables). Use this to know the exact shape your tests should assert against.
+3. `CLAUDE.md` — language policy (English for code / comments / identifiers), architectural invariants (Shadow DOM, Engine/UI split, dependency-zero, etc.).
+4. Existing `tests/` directory — layout conventions, any already-written tests that your new tests should compose with.
+5. The relevant `src/` entry points referenced by SPEC (`src/index.ts`, `src/core/engine.ts`, `src/adapters/index.ts`, etc.), even if not yet implemented.
 
 ## Hard rules
 
@@ -55,7 +56,7 @@ When done, produce:
 - Don't test private method names or internal state.
 - Don't paraphrase SPEC — write tests that would break if SPEC behavior changed.
 - Don't over-specify exact error messages; assert on error types / codes if SPEC defines them, otherwise assert on observable behavior (e.g. `error` chunk emitted).
-- Don't write tests for behavior SPEC marks as v2 / Non-goals.
+- Don't write tests for behavior SPEC lists under §17 "未対応 (将来検討)". 🚧 sections (e.g. ChatStore in §9) are fair game — they're the next implementation target.
 
 ## If SPEC is ambiguous
 

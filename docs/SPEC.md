@@ -1,26 +1,34 @@
 # web-chat-widget 仕様書
 
-> Version: draft-1 / 最終更新: 2026-04-25
+> 最終更新: 2026-04-30
 
-本ドキュメントは、Web ページに埋め込み可能な AI チャット UI パッケージ `web-chat-widget` の設計仕様書である。実装着手の前段に合意しておくべき事項を一式まとめる。
+任意の Web ページに埋め込み可能なフローティング型 AI チャット UI `web-chat-widget` の設計仕様書。**この文書は設計判断とアーキテクチャ不変条件の記録**であり、API シグネチャと利用方法のリファレンスは [API.md](./API.md) を参照すること。
+
+## ステータス凡例
+
+各節と項目の見出しに以下のいずれかを付ける。
+
+- ✅ **実装済み** — 現在のコードベースに存在する。詳細なシグネチャは API.md またはコード参照
+- 🚧 **仕様確定・未実装** — 仕様は本書で確定済み、実装は未着手
 
 ---
 
-## 1. 概要 / スコープ
+## 1. 概要 / スコープ ✅
 
 ### 1.1 プロダクト
 
 `web-chat-widget` は、任意の Web ページにフローティング型の AI チャット UI を導入するための配布可能パッケージ。
 
-- ページ右下（既定）に常駐するフローティングアクションボタン (FAB) をクリックするとチャットパネルが開く
-- ユーザーが入力した文字列をバックエンド API に送信し、アシスタント応答をストリーミング表示する
-- バックエンド API の形式は差し替え可能（アダプタ設計）
+- ページ右下（既定）に常駐する FAB をクリックするとチャットパネルが開く
+- ユーザー入力をバックエンド API に送信し、アシスタント応答をストリーミング表示
+- バックエンド API の形式は **アダプタ** で差し替え可能
+- 履歴の永続化は **ストア** で opt-in 可能 (🚧 未実装)
 
 ### 1.2 実装方針
 
-- **ランタイム依存ゼロ**。Web 標準（Custom Elements, Shadow DOM, `fetch`, `ReadableStream`, `EventTarget`, `AbortController` など）のみで構成する
-- v1 は**バニラ JS/TS 版**のみリリース。v2 以降で React / Vue などのラッパーを追加
-- ビルドツールは Vite の library mode、テストは Vitest + happy-dom
+- **ランタイム依存ゼロ**。Web 標準（Custom Elements, Shadow DOM, `fetch`, `ReadableStream`, `EventTarget`, `AbortController` など）のみで構成
+- 現バージョンはバニラ JS/TS 版のみ。React / Vue ラッパーは将来検討（§13）
+- ビルドは Vite library mode、テストは Vitest + happy-dom
 
 ### 1.3 想定利用シーン
 
@@ -31,32 +39,21 @@
 
 ---
 
-## 2. ゴール / 非ゴール
-
-### 2.1 ゴール (v1)
+## 2. ゴール ✅
 
 - Web 標準のみで動作し、外部ページの CSS に干渉されずレンダリングされる
 - 宣言的 (`<chat-widget>` カスタム要素) と命令的 (`new ChatWidget()`) の両 API を提供する
 - OpenAI 互換 SSE を既定のレスポンス形式とし、かつユーザーが独自バックエンドに差し替えられる
+- 履歴のクライアント永続化を **opt-in** で提供する（既定はインメモリ。§9）
 - テーマ (色、角丸、フォント、位置) を CSS Custom Properties から上書きできる
 - 基本的なアクセシビリティ (キーボード操作、`aria-live`, 十分なコントラスト) を満たす
 - 日本語 / 英語の UI 文言を持ち、任意の文言に上書きできる
 
-### 2.2 非ゴール (v1)
-
-以下は将来対応。v1 には含めない。
-
-- 会話履歴の永続化（`localStorage` / `IndexedDB`）
-- 複数会話（スレッド）管理
-- 添付ファイル、画像、音声入出力
-- Tool calling / Function calling の可視化
-- コードブロックのシンタックスハイライト（依存ゼロ方針と緊張する）
-- `postMessage` を使ったクロスフレーム連携
-- IE 系・旧 Edge のサポート（Chromium, Firefox, Safari の現行 2 世代）
+未対応の項目は §17 にまとめる。
 
 ---
 
-## 3. 配布形態とエントリポイント
+## 3. 配布形態とエントリポイント ✅
 
 ### 3.1 配布物
 
@@ -72,162 +69,59 @@
 - UMD は提供しない（ESM + IIFE で要件を満たす）
 - ピア依存・ランタイム依存ともになし
 
-### 3.2 `package.json` exports
+### 3.2 設計上の判断
 
-```jsonc
-{
-  "name": "web-chat-widget",      // 公開時に確定（未定）
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "files": ["dist"],
-  "exports": {
-    ".":          { "types": "./dist/index.d.ts",          "import": "./dist/index.js" },
-    "./element":  { "types": "./dist/element.d.ts",        "import": "./dist/element.js" },
-    "./adapters": { "types": "./dist/adapters/index.d.ts", "import": "./dist/adapters.js" }
-    // "./react" は v2 で実体ファイルと同時に追加。未実装の path を exports に出さない方針
-  }
-}
-```
+- `package.json` の `exports` は `"."` / `"./element"` / `"./adapters"` の 3 エントリのみ。`"./react"` 等の未実装パスを public exports に晒さない方針
+- 副作用の分離: `"."` (`src/index.ts`) は import しただけでは何も起きない。`customElements.define(...)` を実行したい場合は `"./element"` または IIFE を使う
+- IIFE は `<script>` 1 行で動かすため、`window.ChatWidget` にクラスと `ChatWidget.adapters` 名前空間を attach し、副作用で `<chat-widget>` も登録する
 
-- `"."` は `ChatWidget` クラスと各 API 型を export する（副作用なし = import しただけでは何も起きない）
-- `"./element"` は import するだけで `customElements.define('chat-widget', …)` を実行する
-- `"./adapters"` は `createOpenAISseAdapter` / `createJsonAdapter` を export。types パスが `dist/adapters/index.d.ts` なのは Vite が `entry: { adapters: "src/adapters/index.ts" }` で `dist/adapters.js` をフラットに出す一方、tsc は `rootDir: src` 配下のフォルダ構造を保つため `dist/adapters/index.d.ts` に declaration が出るため
-- `"./react"` は v2 で React ラッパーを公開する際に同時追加する
-
-### 3.3 CDN 埋め込みの使用例
-
-```html
-<script src="https://cdn.example.com/web-chat-widget.iife.js"></script>
-<script>
-  ChatWidget.mount({
-    adapter: ChatWidget.adapters.createOpenAISseAdapter({
-      url: "/api/chat"
-    })
-  });
-</script>
-```
-
-IIFE ビルドでは `window.ChatWidget` にクラス本体と `ChatWidget.adapters` が同梱される。さらに副作用で `<chat-widget>` カスタム要素も登録される（IIFE では "./element" 相当を内包）。
+API のシグネチャは [API.md §1](./API.md#1-インストールとエントリポイント) 参照。実装ファイル / ビルド構成の詳細は CLAUDE.md と `vite.config.ts` を参照。
 
 ---
 
-## 4. 公開 API
+## 4. 公開 API ✅
 
-### 4.1 宣言的 API（カスタム要素）
+API のシグネチャ・属性表・メソッド表・イベント表は [API.md §2 〜 §3](./API.md) にまとめる。本節は**設計判断のみ**を記録する。
 
-`<chat-widget>` は Shadow DOM 付きの Custom Element。
+### 4.1 二系統の API を持つ理由
 
-#### 4.1.1 属性
+- 宣言的 API (`<chat-widget>` カスタム要素) — 既存サイト・CMS に script タグ 1 行で挿入する用途
+- 命令的 API (`new ChatWidget()` / `ChatWidget.mount()`) — npm 経由で組み込み、複数インスタンス化やライフサイクル制御をしたい用途
 
-| 属性 | 型 | 既定値 | 説明 |
-| --- | --- | --- | --- |
-| `open` | boolean (presence) | なし | 属性が存在すると開いた状態で初期化 |
-| `position` | `"bottom-right" \| "bottom-left" \| "top-right" \| "top-left"` | `"bottom-right"` | FAB とパネルの配置 |
-| `locale` | `"ja" \| "en"` | `navigator.language` 由来 | UI 言語 |
-| `theme` | `"light" \| "dark" \| "auto"` | `"auto"` | テーマ |
-| `api-url` | string | なし | 既定アダプタを使う場合のエンドポイント |
-| `api-mode` | `"openai-sse" \| "json"` | `"openai-sse"` | 既定アダプタの種別 |
+両系統で同じ機能セットが使えることを不変条件とする。
 
-- `api-url` / `api-mode` を指定すると、内部で `createOpenAISseAdapter` または `createJsonAdapter` を自動構築する
-- より高度な制御（ヘッダー付与・完全な差し替え）は JS API 経由で行う
-- `api-url` / `api-mode` は **mount 後の属性変更を反映しない**。再設定したい場合は JS API で adapter を差し替えるか、要素を一度 detach して作り直す。他の属性 (`open` / `position` / `locale` / `theme`) は実行時変更に追随する
+### 4.2 動的属性変更の追従ルール
 
-#### 4.1.2 使用例
-
-```html
-<chat-widget api-url="/api/chat" theme="auto" locale="ja" position="bottom-right"></chat-widget>
-```
-
-### 4.2 命令的 API
-
-#### 4.2.1 コンストラクタ
-
-```ts
-import { ChatWidget } from "web-chat-widget";
-import { createOpenAISseAdapter } from "web-chat-widget/adapters";
-
-const widget = new ChatWidget({
-  target: document.body,                // 省略時 document.body
-  adapter: createOpenAISseAdapter({ url: "/api/chat" }),
-  position: "bottom-right",
-  theme: "auto",
-  locale: "ja",
-  initialMessages: [],                  // 初期表示するメッセージ（省略可）
-  messages: { placeholder: "質問をどうぞ" }  // UI 文言の部分上書き
-});
-```
-
-#### 4.2.2 ショートハンド
-
-```ts
-ChatWidget.mount({ adapter, ... });  // target 省略で document.body に append
-```
-
-`mount` は `new ChatWidget(options)` 相当のインスタンスを返す。複数インスタンス化を許容する（ただし z-index が衝突するので同時に複数 FAB を置く運用は非推奨）。
-
-#### 4.2.3 メソッド
-
-| メソッド | 説明 |
-| --- | --- |
-| `open(): void` | パネルを開く |
-| `close(): void` | パネルを閉じる |
-| `toggle(): void` | 開閉を反転 |
-| `sendMessage(text: string): Promise<void>` | プログラム的にユーザー発言を送信 |
-| `clear(): void` | 会話履歴をクリア（UI と内部状態ともに） |
-| `destroy(): void` | DOM とリスナーをすべて破棄 |
-| `getMessages(): readonly Message[]` | 現在の履歴のスナップショットを取得 |
-
-### 4.3 イベント
-
-`ChatWidget` は `EventTarget` を継承する。フレームワーク中立、かつ将来の React ラッパーでも素直に `useEffect` でリスナー登録できる形式。
-
-| イベント | `detail` の型 | 説明 |
+| 属性 | 実行時変更を反映 | 理由 |
 | --- | --- | --- |
-| `ready` | `void` | 初期化完了（DOM 挿入とスタイル適用が済んだ時点） |
-| `open` | `void` | パネルが開いた |
-| `close` | `void` | パネルが閉じた |
-| `message` | `{ role: "user" \| "assistant"; content: string }` | 新しいメッセージが確定（ストリーミング完了時点で 1 回） |
-| `error` | `{ error: Error }` | アダプタからエラーが返った / 通信失敗 |
+| `open` / `position` / `locale` / `theme` | ○ | 表示状態のみで再構築不要 |
+| `api-url` / `api-mode` | × | mount 後の adapter 差し替えはエンジン再構築が必要なため |
+| `persist` / `persist-key` (🚧) | × | mount 後のストア差し替えはエンジン再構築が必要なため |
 
-使用例:
+`api-url` 後の adapter 差し替え、`persist` 後のストア差し替えはどちらも JS API 経由で要素を作り直す方針。
 
-```ts
-widget.addEventListener("message", (e) => {
-  console.log(e.detail.role, e.detail.content);
-});
-```
+### 4.3 イベントは `EventTarget` 継承
 
-### 4.4 型定義
+`ChatWidget` は `EventTarget` を継承し、`addEventListener` / `dispatchEvent` ベースで通知する。コールバック props を露出しない理由:
 
-```ts
-export interface Message {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;        // 内部表現は Markdown ソース文字列
-  createdAt: number;      // epoch ms
-  status?: "streaming" | "done" | "error";
-}
+- フレームワーク中立 (React 版でも `useEffect` でリスナー登録できる)
+- 複数の listener を自然にぶら下げられる
+- `signal` でクリーンアップが書ける
 
-export interface ChatWidgetOptions {
-  target?: HTMLElement;
-  adapter: ChatAdapter;
-  position?: "bottom-right" | "bottom-left" | "top-right" | "top-left";
-  theme?: "light" | "dark" | "auto";
-  locale?: "ja" | "en";
-  initialMessages?: Message[];
-  messages?: Partial<LabelDictionary>;  // §10.2
-}
-```
+イベントは `bubbles: false`, `composed: false`。Shadow DOM 越境を意図しない。
+
+### 4.4 複数インスタンス
+
+複数 `ChatWidget` を同時に置くことは技術的には許容するが、z-index と FAB の位置が衝突するため非推奨。同一 origin に複数置く場合は CSS 変数 `--cw-z-index` と `position` をインスタンスごとに変える運用が必要。
 
 ---
 
-## 5. フローティング UI の挙動仕様
+## 5. フローティング UI の挙動仕様 ✅
 
 ### 5.1 状態
 
 - **閉状態**: ページ隅に FAB（56px の円形ボタン）だけが表示される
-- **開状態**: FAB の近傍にパネル (幅 380px × 高さ min(600px, calc(100vh - 120px))) が展開される。FAB はパネルのヘッダーに吸収されるか、パネルの下に残る（`position` 別に見た目微調整）
+- **開状態**: FAB の近傍にパネル (幅 380px × 高さ min(600px, calc(100vh - 120px))) が展開される
 
 ### 5.2 初期状態
 
@@ -236,35 +130,34 @@ export interface ChatWidgetOptions {
 
 ### 5.3 位置
 
-- `position` オプションで 4 隅から選択
+- `position` で 4 隅から選択
 - 画面端からのオフセット (既定 20px) は CSS 変数 `--cw-offset` で調整可
 
 ### 5.4 レスポンシブ
 
 - ブレークポイント: ビューポート幅 < 640px
 - モバイル時はパネルをフルスクリーン表示（`width: 100vw; height: 100dvh`）
-- **フルスクリーン時も非モーダル方針は維持**：背景のタブ移動は塞がないが、視覚的には背面は隠れる
+- **フルスクリーン時も非モーダル方針は維持**: 背景のタブ移動は塞がないが、視覚的には背面は隠れる
 
 ### 5.5 アニメーション
 
 - 開閉は `transform: translateY()` + `opacity` の組合せ、`transition: 160ms ease-out`
-- `@media (prefers-reduced-motion: reduce)` ではトランジションを無効化し、即座に切り替える
+- `@media (prefers-reduced-motion: reduce)` ではトランジションを無効化
 
 ### 5.6 z-index
 
-- 既定 `z-index: 2147483000`
-  - 最大値 (2147483647) は既存サイトとの衝突を避けるため使わない
+- 既定 `z-index: 2147483000` (最大値 2147483647 は既存サイトとの衝突リスクがあるため使わない)
 - CSS 変数 `--cw-z-index` で上書き可能
 
 ### 5.7 スクロール挙動
 
 - メッセージリストは内部でのみスクロールする
-- 新規メッセージ（アシスタントのストリーミング更新含む）到着時、**スクロール位置が最下端から 48px 以内にある場合のみ**自動追従する
-- ユーザーが上方向へスクロールして履歴を読んでいる場合は追従しない
+- 新規メッセージ（アシスタントのストリーミング更新含む）到着時、**スクロール位置が最下端から 48px 以内にある場合のみ**自動追従
+- ユーザーが上方向にスクロールして履歴を読んでいる場合は追従しない
 
 ---
 
-## 6. メッセージモデル
+## 6. メッセージモデル ✅
 
 ### 6.1 role
 
@@ -283,7 +176,7 @@ export interface ChatWidgetOptions {
 | `**bold**` | ○ |
 | `*italic*` / `_italic_` | ○ |
 | `` `inline code` `` | ○ |
-| トリプルバッククォートのコードブロック | ○ (言語指定は無視、`<pre><code>` でそのまま描画) |
+| トリプルバッククォートのコードブロック | ○ (言語指定は無視) |
 | `[text](url)` | ○ (§6.4 の制約付き) |
 | `- ` / `* ` による箇条書きリスト | ○ |
 | `1.` による番号付きリスト | ○ |
@@ -294,7 +187,7 @@ export interface ChatWidgetOptions {
 | シンタックスハイライト | × |
 
 - Markdown パイプラインは **`assistant` および `system` ロールのメッセージにのみ適用**する
-- `user` ロールはプレーンテキストとして描画する（`textContent` のみ）。利用者入力を Markdown 解釈することで生じるエスケープ不一致や UX 上の驚きを避けるため
+- `user` ロールはプレーンテキストとして描画（`textContent` のみ）
 
 ### 6.3 サニタイズ方針
 
@@ -320,13 +213,13 @@ export interface ChatWidgetOptions {
 
 ### 6.7 エラーとリトライ
 
-- アダプタの `error` チャンクまたは例外発生時、該当 assistant メッセージの行内に赤いエラー表示と「再試行」ボタンを表示する
-- 再試行は直前の user メッセージをもとに同じ adapter でもう一度 send を呼ぶ
-- ネットワークエラーと HTTP エラーを区別せず、文言は §10 で定義
+- アダプタの `error` チャンクまたは例外発生時、該当 assistant メッセージの行内に赤いエラー表示と「再試行」ボタンを表示
+- 再試行は直前の user メッセージをもとに同じ adapter で `retry()` を呼ぶ
+- ネットワークエラーと HTTP エラーを区別せず、文言は §11 で定義
 
 ---
 
-## 7. スタイルカスタマイズ
+## 7. スタイルカスタマイズ ✅
 
 ### 7.1 方針
 
@@ -361,25 +254,13 @@ export interface ChatWidgetOptions {
 
 - **権威の分担**:
   - **SPEC (この節)** = 公開する CSS 変数名・用途・既定値の「一覧」を定義する（何が存在するか）
-  - **`src/core/theme.ts`（仮称）の `THEME_TOKENS`** = その変数の実値を保持する実装定数（いくつか）
+  - **`src/core/theme.ts` の `THEME_TOKENS`** = その変数の実値を保持する実装定数
 - 変数の追加・削除・リネームは SPEC を先に更新し、その後 `THEME_TOKENS` を合わせる。逆順（実装先行）は禁止
 - 既定値のリファイン（例: primary 色の微調整）は `THEME_TOKENS` 側の変更で完結してよいが、SPEC の既定値列も同値に揃え直す
 
 ### 7.3 `::part()` で露出する要素
 
-| part 名 | 対応要素 |
-| --- | --- |
-| `fab` | 閉状態のボタン |
-| `panel` | 展開パネル全体 |
-| `header` | パネル上部 |
-| `close-button` | パネル閉じボタン |
-| `log` | メッセージ一覧のスクロールコンテナ |
-| `message` | すべてのメッセージ |
-| `message-user` / `message-assistant` / `message-system` | role 別メッセージ |
-| `message-error` | エラー表示 |
-| `input-area` | 入力欄周辺 |
-| `input` | `<textarea>` |
-| `send-button` | 送信ボタン |
+`::part()` 一覧は [API.md §3.3](./API.md#33-part-セレクタ) を参照。
 
 ### 7.4 プリセットテーマ
 
@@ -389,91 +270,187 @@ export interface ChatWidgetOptions {
 
 ---
 
-## 8. API アダプタ仕様
+## 8. アダプタ ✅
 
-### 8.1 インターフェース
+シグネチャと組込み factory のオプション詳細は [API.md §4](./API.md#4-アダプタ) を参照。本節は**インターフェース設計上の判断**を記録する。
+
+### 8.1 `AsyncIterable<AdapterChunk>` に統一する理由
+
+ストリーミング (SSE) と非ストリーミング (1 回 JSON) を**同じインターフェースで扱う**ため。
 
 ```ts
-export interface ChatAdapter {
-  send(
-    messages: readonly Message[],
-    signal: AbortSignal
-  ): AsyncIterable<AdapterChunk>;
+interface ChatAdapter {
+  send(messages: readonly Message[], signal: AbortSignal): AsyncIterable<AdapterChunk>;
 }
 
-export type AdapterChunk =
+type AdapterChunk =
   | { type: "text-delta"; delta: string }
   | { type: "done" }
   | { type: "error"; error: Error };
 ```
 
-- `AsyncIterable` を返す形式に統一することで、ストリーミング / 非ストリーミングを同じインターフェースで扱える
-- `signal` は widget 側から中断（ユーザーが閉じた、destroy 等）するための `AbortSignal`
-- 実装側は `signal.aborted` を見て `fetch` をキャンセルし、イテレータを終了する義務がある
+- ストリーミングなら delta を順に yield し、最後に `done`
+- 非ストリーミングなら 1 回の delta + `done` を yield
 
-### 8.2 同梱アダプタ
+呼び出し側 (Engine) はストリーミング有無を意識しない。
 
-#### 8.2.1 `createOpenAISseAdapter`
+### 8.2 `AbortSignal` 義務
 
-```ts
-createOpenAISseAdapter(options: {
-  url: string;
-  headers?: Record<string, string>;
-  model?: string;          // bodyに含めて送信。既定は指定なし
-  fetchImpl?: typeof fetch;  // テスト注入用
-}): ChatAdapter
-```
+実装側は `signal.aborted` を見て `fetch` をキャンセルし、イテレータを終了する義務がある。Engine は `clear()` / `destroy()` / 新規 `sendMessage()` 時に signal を発火する。
 
-- HTTP POST `url`、`Content-Type: application/json`
-- body: `{ messages: [{ role, content }], stream: true, model? }`
-- レスポンスは `text/event-stream`。行ごとに `data: {...}` を parse し、`choices[0].delta.content` を `text-delta` として yield する
-- `data: [DONE]` で `done` を yield し、ループを抜ける
-- fetch 失敗 / 400 以上のステータス / JSON parse 失敗 / `choices` 欠落は `error` を yield
+### 8.3 例外を投げず error チャンクで返す
 
-#### 8.2.2 `createJsonAdapter`
+ネットワーク失敗・HTTP エラー・JSON parse 失敗のすべてを `{ type: "error", error }` として yield する。同期 throw は禁止。Engine 側でのエラーハンドリングを単一経路に揃えるため。
 
-```ts
-createJsonAdapter(options: {
-  url: string;
-  headers?: Record<string, string>;
-  extract?: (json: unknown) => string;  // 既定は (json) => json.reply
-  fetchImpl?: typeof fetch;
-}): ChatAdapter
-```
+### 8.4 認証
 
-- 単発 POST、JSON レスポンスから文字列を抜き出し、1 回の `text-delta` として yield し、`done` で終了
-- ストリーミングしない、素朴なバックエンドを書く場合の選択肢
-
-### 8.3 認証
-
-- **API キーをフロントエンドから直接 LLM プロバイダに送る用途は非推奨**。README にも明記する
-- 既定は「ユーザー自身のバックエンドを経由する」ことを前提とし、`headers` オプションで Cookie / Bearer を任意に追加可能
+- **API キーをフロントエンドから直接 LLM プロバイダに送る用途は非推奨**。README にも明記
+- 既定は「ユーザー自身のバックエンドを経由する」ことを前提とし、`headers` オプションで Cookie / Bearer を追加
 - ブラウザ埋め込み時の CORS・CSRF は利用者側の責任範囲
-
-### 8.4 カスタムアダプタ
-
-上記インターフェースを実装すれば任意のバックエンド・スキーマに対応できる。例（WebSocket アダプタ、内部ストア直結のモックなど）はサンプルとして `docs/examples/` に追加する予定。
 
 ---
 
-## 9. アクセシビリティ
+## 9. データ永続化 (ChatStore) 🚧
 
-### 9.1 非モーダル方針
+### 9.1 動機
 
-v1 は**非モーダル**。パネルを開いても背景ページのインタラクションは維持される。
+リロードで履歴が消える UX 問題を解決しつつ、第三者サイト埋め込みでは「永続化したい / したくない」が埋め込み先で分かれるため、**プラガブルなストア**として opt-in 提供する。Adapter と並ぶ第 2 のシーム。
+
+### 9.2 インターフェース
+
+```ts
+export interface ChatStore {
+  load(): Message[];                          // sync。constructor 起動時に 1 回呼ばれる
+  save(messages: readonly Message[]): void;   // 状態確定時に呼ばれる (§9.4)
+  clear(): void;                              // widget.clear() 呼出時に永続層も purge
+}
+```
+
+#### 9.2.1 sync 統一の理由
+
+すべての public メソッドを **sync** にし、`ChatEngine` の constructor / 状態更新パスを同期で書ける構造を維持する。`localStorage` / `sessionStorage` は sync API なので無問題。`IndexedDB` / バックエンド同期等の非同期バックエンドは「**factory が async、できあがったストアは sync**」というパターンで吸収する例:
+
+```ts
+// 想定例 (組込みではない)
+const store = await createIndexedDbStore({ db: "myapp", store: "chat" });
+new ChatWidget({ store });  // ← 以降 sync で動く
+```
+
+### 9.3 組込み factory
+
+```ts
+createMemoryStore(): ChatStore;                              // 既定 (現状の挙動と同じ)
+
+createLocalStorageStore(opts?: {
+  key?: string;             // 既定 "web-chat-widget"
+  maxMessages?: number;     // 既定 100
+}): ChatStore;
+
+createSessionStorageStore(opts?: {
+  key?: string;             // 既定 "web-chat-widget"
+}): ChatStore;
+```
+
+### 9.4 保存タイミング
+
+`save()` を呼ぶ箇所:
+
+- `done` チャンク到達時 (assistant メッセージが確定した瞬間)
+- `clear()` 直後 (空配列を保存)
+- `retry()` で履歴 splice 直後
+
+呼ばない箇所:
+
+- `text-delta` ごと (書込みコストとストリーミング中断時のゴミを避ける)
+- `sendMessage()` の user メッセージ追加直後 (assistant 応答とセットで確定する方針)
+
+### 9.5 読込タイミング
+
+- `ChatEngine` constructor で `store.load()` を**同期的に**呼ぶ
+- `initialMessages` と `store.load()` 結果が両方ある場合は **store load 結果を採用** (永続化された会話の継続を優先)
+
+### 9.6 保存形式とバージョニング
+
+```jsonc
+{
+  "v": 1,
+  "messages": [/* Message[] */]
+}
+```
+
+- JSON parse 失敗 / `v` mismatch / `messages` が配列でない / 各要素のスキーマ不正 → discard して空配列扱い
+- スキーマを破壊的に変える際に `v` を上げ、旧バージョンは discard する方針 (マイグレーションは現状実装しない)
+
+### 9.7 Quota 超過
+
+`localStorage.setItem` が `QuotaExceededError` を投げた場合:
+
+1. 古い順に半数を drop して 1 回再試行
+2. それでも失敗したら **memory にフォールバック** (以降の `save` は no-op)、`console.warn` でログ
+3. ユーザーには UI 上の通知はしない (ストア層の問題でチャット機能を阻害しない方針)
+
+### 9.8 Storage 例外への耐性
+
+- Private browsing や `localStorage` 無効化等で例外が出る環境は、**factory 段階で検知**し memory store を返す
+- 検知方法: `setItem`/`getItem`/`removeItem` を sentinel key で 1 回試行
+
+### 9.9 `clear()` の責務
+
+`ChatWidget.clear()` (🚧 未実装) を呼ぶと:
+
+1. `engine.clear()` でインメモリ履歴を空に
+2. `store.clear()` で永続層も purge
+3. UI を空状態に再描画
+
+### 9.10 複数インスタンス
+
+同一 `key` で複数 `ChatWidget` を同一ページに置くと履歴が混ざる。これは「動くが非推奨」と明記し、複数インスタンス利用時は `persist-key` を変える運用とする。
+
+### 9.11 宣言的 API への露出
+
+属性で便利フラグとして提供する:
+
+| 属性 | 値 | 既定 | 効果 |
+| --- | --- | --- | --- |
+| `persist` | `"local"` \| `"session"` \| `"none"` | `"none"` | 内部で対応する factory を呼ぶ |
+| `persist-key` | string | `"web-chat-widget"` | factory に渡すキー |
+
+`api-url` 同様、より細かい制御 (`maxMessages` / カスタムストア) は JS API 経由で行う。
+
+### 9.12 プライバシー
+
+opt-in 永続化はユーザーの会話内容をブラウザストレージに保存する。サイト側で:
+
+- プライバシーポリシーへの記載
+- Cookie 同意ダイアログ等との整合
+- 共有端末を想定する場合の取扱い
+
+の検討が必要。本ウィジェットはこの判断を行わず、ホスト側責任とする。詳細は §12.6 セキュリティ。
+
+### 9.13 イベントは追加しない
+
+`save` / `load` は内部実装詳細であり、§12 で確定している 5 種のイベント (`ready` / `open` / `close` / `message` / `error`) は変更しない。
+
+---
+
+## 10. アクセシビリティ ✅
+
+### 10.1 非モーダル方針
+
+現バージョンは**非モーダル**。パネルを開いても背景ページのインタラクションは維持される。
 
 - パネル要素に `role="complementary"` と `aria-label="AI chat"`（ローカライズ可能）を付与
 - 背景への Tab 移動は塞がない
 - `aria-modal` は付与しない
 - フォーカストラップなし
 
-### 9.2 メッセージリスト
+### 10.2 メッセージリスト
 
 - コンテナに `role="log"` と `aria-live="polite"` を付与
-- ストリーミング中の部分更新はスクリーンリーダーが騒がしくなるため、**「メッセージ確定時（`done` 到達時）に一度だけ aria-live を発火**する方針で実装する
+- ストリーミング中の部分更新はスクリーンリーダーが騒がしくなるため、**メッセージ確定時（`done` 到達時）に一度だけ aria-live を発火**する方針
 - 実装上は、ストリーミング中は `aria-live="off"` の hidden コンテナで描画し、確定時に `aria-live="polite"` コンテナへテキストをコピーする
 
-### 9.3 キーボード操作
+### 10.3 キーボード操作
 
 | キー | 挙動 |
 | --- | --- |
@@ -482,111 +459,95 @@ v1 は**非モーダル**。パネルを開いても背景ページのインタ�
 | `Esc` | パネルを閉じる（入力欄フォーカス時） |
 | `Tab` | パネル内要素を順に辿り、最後の要素の次で背景ページへ抜ける |
 
-### 9.4 コントラスト
+### 10.4 コントラスト
 
 - 既定のライト / ダーク両テーマは WCAG AA (4.5:1) を満たすよう調整する
 - ユーザーが CSS 変数を上書きした場合のコントラスト担保は利用者責任
 
 ---
 
-## 10. 国際化
+## 11. 国際化 ✅
 
-### 10.1 ロケール
+### 11.1 ロケール
 
 - `locale: "ja" | "en"`
 - 既定は `navigator.language` から `ja` / `en` を判定（それ以外は `en` フォールバック）
 - 明示指定があれば優先
 
-### 10.2 文言辞書
+### 11.2 文言辞書
 
-```ts
-interface LabelDictionary {
-  fabLabel: string;            // 例: "AI チャットを開く"
-  panelTitle: string;          // 例: "AI アシスタント"
-  closeButton: string;         // 例: "閉じる"
-  placeholder: string;         // 例: "メッセージを入力"
-  sendButton: string;          // 例: "送信"
-  errorGeneric: string;        // 例: "応答を取得できませんでした"
-  errorRetry: string;          // 例: "再試行"
-  emptyState: string;          // 例: "何でも聞いてください。"
-  typingLabel: string;         // aria 用: "応答を生成中"
-  user: string;                // "あなた"
-  assistant: string;           // "アシスタント"
-  system: string;              // "システム"
-  clearHistory: string;        // "履歴をクリア"
-  clearConfirm: string;        // "履歴を削除しますか？"
-  poweredBy: string;           // 未使用スロット（将来のフッター用）
-}
-```
+`LabelDictionary` の全 15 キーは [API.md §6](./API.md#6-ロケールと文言) を参照。
 
-- 合計 15 キー前後
 - `messages` オプションで一部だけ上書き可能（指定しなかったキーはロケール既定値）
+- 部分上書きの仕様は `Partial<LabelDictionary>` を `resolveLabels(locale, override)` でマージするだけのシンプル実装
 
 ---
 
-## 11. セキュリティ
+## 12. セキュリティ ✅
 
-### 11.1 XSS 対策
+### 12.1 XSS 対策
 
 - Markdown レンダリングは allowlist 方式。対応外の記法は**必ずエスケープ済みテキスト**として描画
 - `innerHTML` / `insertAdjacentHTML` は使わない。`document.createElement` + `textContent` + `appendChild` のみ
 - アシスタント応答も同様に扱う（プロンプトインジェクションで生 HTML を吐いてくる前提）
 
-### 11.2 リンク
+### 12.2 リンク
 
 - `href` は `^https?://` のみ許可
 - `target="_blank"`, `rel="noopener noreferrer"` を強制
 - 許可外スキーム (`javascript:`, `data:` 等) は自動的にプレーンテキスト降格
 
-### 11.3 CSP
+### 12.3 CSP
 
 - Shadow DOM 内の `<style>` ノードは `style-src 'unsafe-inline'` を要求する
-- 厳格 CSP 下で `'unsafe-inline'` を許可できないユースケースは v1 では非対応。README で明記する
+- 厳格 CSP 下で `'unsafe-inline'` を許可できないユースケースは現バージョンでは非対応。README で明記
 - `script-src` には影響しない（JS は外部ファイルからロードされる）
 
-### 11.4 Trusted Types
+### 12.4 Trusted Types
 
 - 実装側で直接 `innerHTML` を使わないので Trusted Types 導入済みサイトでも動作する想定
-- テストで Trusted Types 有効環境を再現することは v1 のスコープ外。将来課題
+- テストで Trusted Types 有効環境を再現することは現バージョンのスコープ外
 
-### 11.5 依存リスク
+### 12.5 依存リスク
 
 - 依存ゼロ方針のため、サプライチェーン攻撃面を最小化する
-- `devDependencies` は Biome / TypeScript / Vite / Vitest のみ
+- `devDependencies` は Biome / TypeScript / Vite / Vitest / happy-dom のみ
+
+### 12.6 永続化のプライバシー (🚧)
+
+opt-in でストアを有効化した場合、ユーザーの会話内容がブラウザストレージ (`localStorage` / `sessionStorage` 等) に保存される。
+
+- ホストサイトはプライバシーポリシーに保存内容と保存場所を記載すること
+- Cookie 同意ダイアログを使うサイトは、ストレージ同意の対象として扱うことを推奨
+- 共有端末で利用される可能性があるサイトでは、`createSessionStorageStore` を選ぶか永続化を無効化する
+- 本ウィジェット側はこれらの判断を行わず、ホスト側責任とする
 
 ---
 
-## 12. ビルド / パッケージング
+## 13. ビルド / パッケージング ✅
 
-### 12.1 Vite 設定
+### 13.1 概要
 
-- `vite.config.ts` を新設
-- `build.lib` で library mode
-  - `entry`: `{ index: "src/index.ts", element: "src/element.ts", adapters: "src/adapters/index.ts" }`
-  - `formats`: `["es"]`（IIFE は別ビルド）
-  - `fileName`: `[name]`
-- IIFE ビルドは `vite build --mode iife` として別エントリ (`src/iife.ts`) で再実行する構成
-  - `src/iife.ts` 内で `element` と `adapters` を import し、`window.ChatWidget` にクラスを割り当てる
-  - `formats: ["iife"]`, `name: "ChatWidget"`
+`pnpm build` は次の 5 step を順次実行する:
 
-### 12.2 TypeScript 型定義
+1. `vite build` (ESM library: index / element / adapters)
+2. `vite build --mode iife` (IIFE バンドル)
+3. `tsc -p tsconfig.build.json` (`.d.ts` 出力)
+4. `node scripts/rewrite-dts-extensions.mjs` (`.d.ts` の `from "./foo.ts"` を `.js` に書換)
+5. `node scripts/copy-demo.mjs` (`demo/*.html` を `dist/` にコピーして preview から配信できるようにする)
 
-- 現行 `tsconfig.json` は `noEmit: true` のまま（Vite 開発用）
-- 型定義生成は `tsconfig.build.json` を別立てし、`declaration: true` / `emitDeclarationOnly: true` / `outDir: dist` / `rootDir: src` で `.d.ts` のみ出す。`exclude` で demo エントリ (`src/main.ts`) を除外
-- `rewriteRelativeImportExtensions: true` を設定するが、TypeScript 6.x は **JS 出力にしか拡張子書換を適用しない**（declaration 出力には `from "./foo.ts"` が残る）。これを補うため `scripts/rewrite-dts-extensions.mjs` を post-process として走らせ、`dist/**/*.d.ts` の `from`/`import` 文中の相対 `.ts` を `.js` に書き換える
-- `npm run build` は次の 5 step を順次実行: `vite build`（ESM）→ `vite build --mode iife`（IIFE バンドル）→ `tsc -p tsconfig.build.json`（`.d.ts` 出力）→ `node scripts/rewrite-dts-extensions.mjs`（拡張子書換）→ `node scripts/copy-demo.mjs`（`demo/*.html` を `dist/` にコピーして preview から配信できるようにする）
+詳細な設定値とハマりどころ (TypeScript 6.x が `rewriteRelativeImportExtensions` を `.d.ts` には適用しない件等) は CLAUDE.md と `vite.config.ts` を参照。
 
-### 12.3 demo ページの扱い
+### 13.2 demo ページの扱い
 
 役割分担した 2 種類の demo を持つ:
 
-- **`index.html` + `src/main.ts`** — 開発者向けプレイグラウンド。`vite dev` (= `pnpm dev`) で立ち上がり、ESM 直 import で動く。テーマ / ロケール / 位置のコントロールパネルや `open()` / `close()` / `sendMessage()` の動作確認に使う
-- **`demo/sample-service.html`** — エンドユーザー視点の production-shaped デモ。架空 SaaS のランディングを模した HTML で、`<script src="./chat-widget.iife.js">` で配布物の IIFE を直接読み込み、第三者サイト埋め込みと同じパスを再現する。`pnpm preview` (=`vite preview`、root が `dist/`) から配信する想定で、`scripts/copy-demo.mjs` が build 末尾で `demo/*.html` を `dist/` にコピーする
-- `npm run build` は library 本体だけ出力する方針を維持しつつ、コピー後の demo HTML を `dist/` 内に同梱して preview を即座に試せるようにする
-- `pnpm demo` (= `pnpm build && pnpm preview`) で build から preview 起動まで一気通貫。確認は任意のブラウザで `http://localhost:4173/sample-service.html` を開く
-- IIFE のファイル名は固定 (`chat-widget.iife.js`) なので、demo HTML 側で `?v=YYYYMMDD` クエリを付けてキャッシュ衝突を避ける慣行
+- **`index.html` + `src/main.ts`** — 開発者向けプレイグラウンド。`pnpm dev` で立ち上がり、ESM 直 import で動く
+- **`demo/sample-service.html`** — エンドユーザー視点の production-shaped デモ。`pnpm demo` で build 後 preview から配信し、`<script src="./chat-widget.iife.js">` で配布物 IIFE を直接読み込む
 
-### 12.4 ディレクトリ構成（想定）
+IIFE のファイル名は固定 (`chat-widget.iife.js`) なので、demo HTML 側で `?v=YYYYMMDD` クエリを付けてキャッシュ衝突を避ける慣行。
+
+### 13.3 ディレクトリ構成
 
 ```
 src/
@@ -598,9 +559,10 @@ src/
     messages.ts            # Message 型、ID 生成
     markdown.ts            # 最小 Markdown → DOM ノード
     sanitize.ts            # リンクスキーム検証等のユーティリティ
-    theme.ts               # THEME_TOKENS, CSS 変数名の単一ソース
+    theme.ts               # THEME_TOKENS, CSS 変数の単一ソース
     i18n.ts                # ロケール辞書
     events.ts              # CustomEvent 生成ヘルパ
+    store.ts               # 🚧 ChatStore interface と組込み factory
   ui/
     widget.ts              # ChatWidget クラス本体（Shadow DOM の組み立て）
     styles.ts              # インライン CSS 文字列
@@ -608,55 +570,59 @@ src/
     panel.ts               # パネル DOM 構築
     log.ts                 # メッセージリスト
     input.ts               # 入力欄
+    observable-engine.ts   # engine の状態変化を rAF バッチで通知
   adapters/
     index.ts               # re-export
     openai-sse.ts          # createOpenAISseAdapter
     json.ts                # createJsonAdapter
     sse-parse.ts           # SSE 行パーサ
 tests/
-  ...
+  ...                      # src/ をミラーしたディレクトリ構造
 demo/
-  sample-service.html      # 架空 SaaS の production-shaped サンプル (preview 用、IIFE 直読み)
+  sample-service.html      # 架空 SaaS の production-shaped サンプル
 scripts/
-  rewrite-dts-extensions.mjs  # build 後に .d.ts の .ts → .js を書換
-  copy-demo.mjs               # build 後に demo/*.html を dist/ にコピー
+  rewrite-dts-extensions.mjs
+  copy-demo.mjs
 docs/
-  SPEC.md                  # 本書
-  examples/                # カスタムアダプタ例（将来）
+  SPEC.md                  # 本書 (設計判断と不変条件)
+  API.md                   # 公開 API リファレンス
 ```
+
+🚧 が付いたファイルは未実装。
 
 ---
 
-## 13. React 版への橋渡し設計
+## 14. React 版への橋渡し設計 ✅
 
-### 13.1 コアと UI の分離
+### 14.1 コアと UI の分離
 
 - `src/core/engine.ts` の `ChatEngine` クラスは UI を持たず、以下のみを管理する
   - `messages: Message[]` の状態
   - adapter の呼び出しと `text-delta` の適用
+  - ストア (🚧) の load / save
   - `EventTarget` を継承したイベント発火
   - `sendMessage(text)`, `clear()`, `retry()` などの操作メソッド
 - UI (`src/ui/widget.ts`) は `ChatEngine` のインスタンスを受け取り、DOM を描画するだけ
-- UI が engine の状態変化を観察する経路は、`src/ui/observable-engine.ts` に置く軽量ラッパーに統一する。ラッパーは `sendMessage` / `retry` をラップし、送信中のみ `requestAnimationFrame` でバッチした `subscribe(cb): () => void` を公開する。これは v2 の React ラッパーが `useSyncExternalStore(subscribe, getSnapshot)` にそのまま接続できる形でもある
-- `ChatEngine` 自体には `"update"` 相当の状態変化イベントを追加しない。公開イベントは SPEC §4.3 の 5 種 (`ready` / `open` / `close` / `message` / `error`) に限定する
+- UI が engine の状態変化を観察する経路は、`src/ui/observable-engine.ts` に置く軽量ラッパーに統一する。ラッパーは `sendMessage` / `retry` をラップし、送信中のみ `requestAnimationFrame` でバッチした `subscribe(cb): () => void` を公開する。これは将来の React ラッパーが `useSyncExternalStore(subscribe, getSnapshot)` にそのまま接続できる形でもある
+- `ChatEngine` 自体には `"update"` 相当の状態変化イベントを追加しない。公開イベントは §4.3 の 5 種 (`ready` / `open` / `close` / `message` / `error`) に限定する
 
-### 13.2 React 版 (v2)
+### 14.2 React 版 (将来)
 
-- `@web-chat-widget/react`（または `web-chat-widget/react`）として薄いラッパーを提供する
+- `@web-chat-widget/react`（または `web-chat-widget/react`）として薄いラッパーを公開予定
 - 内部で `ChatEngine` を使い、`messages` を `useSyncExternalStore` で購読
 - UI は React で書き直す。Shadow DOM は不使用（React アプリ側の CSS スコープに委ねる）
-- アダプタ層はフレームワーク中立なので v1 のものをそのまま使用
+- アダプタ層・ストア層はフレームワーク中立なので現バージョンのものをそのまま使用
 
-### 13.3 不変条件
+### 14.3 不変条件
 
-- `ChatEngine` の public API は v1 で確定させ、v2 以降は互換性を保つ
+- `ChatEngine` の public API は現バージョンで確定させ、以降は互換性を保つ
 - 依存ゼロ方針は `ChatEngine` にも適用する
 
 ---
 
-## 14. テスト戦略
+## 15. テスト戦略 ✅
 
-### 14.0 TDD を開発プロセスの基盤とする
+### 15.1 TDD を開発プロセスの基盤とする
 
 本プロジェクトは **test-first / red-green-refactor** を固定サイクルとする。
 
@@ -664,63 +630,51 @@ docs/
 - 開発は `pnpm test:watch` を常時稼働させた状態で進め、red → green の切り替わりを目視する
 - 実装コミットに対応するテストは先行する（同一コミットに同居でも可、ただしテストなしのコミットは不可）
 - 例外: 型定義のみの変更、デモページの見た目調整、ドキュメント変更、設定ファイル
-- TDD 補助のための subagent と slash command を `.claude/` に同梱する（CLAUDE.md §テスト駆動開発 参照）
+- TDD 補助のための subagent と slash command を `.claude/` に同梱する (CLAUDE.md §テスト駆動開発)
 
-### 14.1 単体テスト
+### 15.2 テスト対象
 
-Vitest + happy-dom で以下を対象とする。
+Vitest + happy-dom で `src/` をミラーした構造で書く。詳細なテストケース列挙は `tests/` 自身が権威 (現状 20 ファイル / 269 ケース)。
 
-| 対象 | テスト内容 |
-| --- | --- |
-| `core/engine.ts` | send → messages 更新、エラー時の遷移、`clear` / `destroy` |
-| `core/events.ts` | `createChatEvent` の `CustomEvent` 形状と `detail` 型 |
-| `core/i18n.ts` | locale 解決（`navigator.language` フォールバック / 明示指定）、`messages` の部分上書き |
-| `core/markdown.ts` | 対応記法の変換、未対応記法のエスケープ、長大入力、XSS ペイロード |
-| `core/messages.ts` | `Message` 型生成と ID ユニーク性 |
-| `core/sanitize.ts` | リンクスキーム判定（https/http 許可、javascript/data 拒否） |
-| `core/theme.ts` | `THEME_TOKENS` 一覧、`renderThemeCss` の出力構造 |
-| `adapters/openai-sse.ts` | SSE チャンクのパース、`[DONE]` 終了、エラー遷移、`AbortSignal` での中断 |
-| `adapters/json.ts` | 単発レスポンス、`extract` カスタマイズ、エラー |
-| `adapters/sse-parse.ts` | 行バッファリング、`data:` プリフィクス処理、空行終端 |
-| `ui/widget.ts` | attach / detach、属性 → プロパティ反映、`::part` 付与、Shadow root 存在、open/close、ストリーミング描画、Markdown 反映 |
-| `ui/observable-engine.ts` | `subscribe` のバッチング、`destroy` のクリーンアップ |
-| `element.ts` | import 副作用での `customElements.define`、再評価時の冪等性 |
-| `iife.ts` | `customElements.define` の bundled 副作用、default export === `ChatWidget`、`ChatWidget.adapters` への名前空間 attach |
+新規実装で追加すべきテスト:
 
-### 14.2 ビジュアル / 手動
+- `tests/core/store.test.ts` 🚧 — 各 factory、quota、schema mismatch、private browsing fallback
+- `tests/ui/widget.clear.test.ts` 🚧 — `clear()` の DOM クリア / `engine.clear()` 委譲 / store.clear 連動
 
-- 現 Vite SPA (`index.html` + `src/main.ts`) を開発者向け demo ページ化し、実際の `<chat-widget>` を複数の attribute 組み合わせで表示する
-- 外部サイト埋め込みのシミュレーションは `demo/sample-service.html` (架空 SaaS) で行い、`pnpm demo` から build 済み IIFE を `<script>` タグ経由で読み込んだ実運用に近い状態で Shadow DOM の独立性 / Markdown レンダリング / ストリーミング挙動を目視確認する
+### 15.3 ビジュアル / 手動
 
-### 14.3 E2E
+- 開発者向け demo (`pnpm dev`) で attribute 組み合わせを目視確認
+- production-shaped demo (`pnpm demo`) で build 済み IIFE を `<script>` 経由で読んだ実運用に近い状態を確認
 
-- v1 では導入しない
-- v2 以降で Playwright による実ブラウザ回帰を検討
+### 15.4 E2E
+
+- 現バージョンでは導入しない
+- 将来 Playwright による実ブラウザ回帰を検討
 
 ---
 
-## 15. バージョニング / リリース方針
+## 16. バージョニング / リリース方針
 
 - セマンティックバージョニングに従う
 - 初版: `0.1.0` からスタートし、API が安定したと判断した時点で `1.0.0` に上げる
 - API 破壊的変更はメジャーバージョンでのみ許容
-- アダプタインターフェースは一度公開したら `1.x` の間は破壊しない
+- アダプタインターフェース・ストアインターフェースは一度公開したら `1.x` の間は破壊しない
 
 ---
 
-## 16. 将来課題 (Non-goals for v1)
+## 17. 未対応 (将来検討)
 
-- [ ] 会話履歴の永続化 (`localStorage` / `IndexedDB`)
-- [ ] 複数会話（スレッド）管理・切り替え UI
+- [ ] 複数会話（スレッド）管理・切り替え UI と、それに伴うストアのスキーマ拡張
 - [ ] Tool calling / Function calling の可視化
 - [ ] 添付ファイル（画像、PDF）
 - [ ] 音声入出力
-- [ ] コードブロックのシンタックスハイライト
+- [ ] コードブロックのシンタックスハイライト（依存ゼロ方針と緊張する）
 - [ ] `postMessage` を使ったクロスフレーム連携
-- [ ] React ラッパー（v2 で正式提供）
+- [ ] React ラッパー
 - [ ] Vue / Svelte / Solid ラッパー
 - [ ] モーダルモード（フォーカストラップ付き）の任意化
 - [ ] 厳格 CSP 下での外部 CSS ファイル版
+- [ ] IndexedDB 版ストアの組込み factory
 
 ---
 
@@ -729,13 +683,14 @@ Vitest + happy-dom で以下を対象とする。
 - **FAB**: Floating Action Button。閉じ状態で隅に常駐するボタン
 - **パネル**: チャット本体（履歴 + 入力欄）を包むコンテナ
 - **アダプタ**: バックエンド API とウィジェットの間のインターフェース実装
+- **ストア**: 履歴を永続層とやり取りするインターフェース実装
 
-## Appendix B: 未決事項（仕様書更新の際に確定する）
+## Appendix B: 未決事項
 
 - npm パッケージ名と公開先レジストリ（候補: `web-chat-widget` / `@cocone/web-chat-widget`）
-- 公開 CSS Custom Properties の最終リスト（§7.2 のたたき台をレビュー後に確定）
 - 初期バージョン (`0.1.0` スタート想定)
 
 ### 確定済み（決定の記録）
 
 - **FAB 既定アイコン**: Feather "message-square" スタイルの単一パス SVG（`M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z`）。`stroke="currentColor"` で `--cw-color-on-primary` を継承、`aria-hidden="true"`。実体は `src/ui/fab.ts` の `buildChatIcon()`。差し替え API（`messages` 辞書のアイコンスロット or 名前付きスロット）は将来検討
+- **`ChatStore` インターフェースは sync 統一**。async バックエンド (IndexedDB / リモート同期) は factory が async でラップして sync ストアを返すパターンで吸収する (§9.2.1)

@@ -2,7 +2,7 @@
 
 A distributable package that embeds a floating AI chat UI into any web page. Zero runtime dependencies, built on web standards only.
 
-> **Status**: pre-release. Core, adapters, UI, declarative entry, IIFE bundle, and the library-mode build pipeline are in place; the developer demo at `pnpm dev` and a production-shaped sample page at `pnpm demo` (fictional SaaS, IIFE via `<script>` tag) both run against a mock streaming adapter. The authoritative design document is [docs/SPEC.md](./docs/SPEC.md). Public API is settling but the version stays below `1.0.0` until the v1 milestone is cut.
+> **Status**: pre-release. Core, adapters, UI, declarative entry, IIFE bundle, and the library-mode build pipeline are in place; the developer demo at `pnpm dev` and a production-shaped sample page at `pnpm demo` (fictional SaaS, IIFE via `<script>` tag) both run against a mock streaming adapter. The authoritative design document is [docs/SPEC.md](./docs/SPEC.md); see [docs/API.md](./docs/API.md) for the public API reference. Each section is tagged ✅ (implemented) or 🚧 (specified, not yet implemented) — currently the ChatStore (history persistence) and `clear()` / `retry()` widget methods are the main 🚧 items. Version stays below `1.0.0` until the API is judged stable.
 
 ## Highlights
 
@@ -11,11 +11,12 @@ A distributable package that embeds a floating AI chat UI into any web page. Zer
 - **Pluggable backend** — OpenAI-compatible SSE is the default, any API can be wired up via the adapter interface
 - **Style-safe** — internals live in a Shadow DOM so the host page's CSS cannot bleed in
 - **Themeable** — colors, radii, fonts, and layout are exposed via CSS custom properties and `::part()` selectors
-- **React-ready** — core logic is decoupled from the UI layer; a React wrapper is planned for v2
+- **React-ready** — core logic is decoupled from the UI layer; a React wrapper is planned for a future release
 
 ## Documentation
 
-- [docs/SPEC.md](./docs/SPEC.md) — full specification: public API, adapter contract, styling tokens, accessibility, build layout, test strategy
+- [docs/SPEC.md](./docs/SPEC.md) — design decisions and architectural invariants. CSS variable list, Markdown allowlist, security/CSP rationale, `ChatStore` design, future-work backlog
+- [docs/API.md](./docs/API.md) — public API reference: type signatures, custom-element attributes, methods, events, `LabelDictionary`, `::part()` selectors, adapter / store factory options
 - CHANGELOG — to be added with the first release
 
 ## Development

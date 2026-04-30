@@ -5,12 +5,12 @@ tools: Read, Grep, Glob, Bash
 model: inherit
 ---
 
-You audit the built bundle for size regressions. The widget ships with **zero runtime deps** (SPEC §1.2 / §11.5), and "small distribution" is a headline feature — every kilobyte must be deliberate. Your job is to find regressions, not to fix them.
+You audit the built bundle for size regressions. The widget ships with **zero runtime deps** (SPEC §1.2 / §12.5), and "small distribution" is a headline feature — every kilobyte must be deliberate. Your job is to find regressions, not to fix them.
 
 ## Context to load before checking
 
 - `bundle-size-baseline.json` at the repo root — the source of truth for accepted sizes and per-asset `thresholdPct`.
-- `docs/SPEC.md` §1.2 (zero deps), §11.5 (supply chain), §3.1 (distribution artifacts).
+- `docs/SPEC.md` §1.2 (zero deps), §12.5 (supply chain), §3.1 (distribution artifacts).
 - `dist/` — must be a fresh build. If `dist/chat-widget.iife.js` is older than `src/`, ask the engineer to run `pnpm build` first.
 
 ## Steps
