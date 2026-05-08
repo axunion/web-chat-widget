@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { AdapterChunk, ChatAdapter } from "../../src/index.ts";
 import { createOpenAISseAdapter } from "../../src/adapters/index.ts";
+import type { AdapterChunk, ChatAdapter } from "../../src/index.ts";
 
 // SPEC §8.1  — ChatAdapter contract
 // SPEC §8.2.1 — createOpenAISseAdapter: request shape, SSE stream parsing,
@@ -70,7 +70,9 @@ const messagesWithInternalFields = [
 ];
 
 /** Minimal message array for tests that do not care about message fields. */
-const minimalMessages = [{ id: "m1", role: "user" as const, content: "hi", createdAt: 0 }];
+const minimalMessages = [
+	{ id: "m1", role: "user" as const, content: "hi", createdAt: 0 },
+];
 
 /** Build a multi-chunk SSE body. */
 function sseBody(...lines: string[]): string {
@@ -122,7 +124,9 @@ describe("createOpenAISseAdapter — request body & headers", () => {
 		const ctrl = new AbortController();
 		await collectChunks(adapter.send(minimalMessages, ctrl.signal));
 
-		const headers = calls[0].init?.headers as Record<string, string> | undefined;
+		const headers = calls[0].init?.headers as
+			| Record<string, string>
+			| undefined;
 		const contentType =
 			headers?.["content-type"] ??
 			headers?.["Content-Type"] ??
@@ -143,7 +147,9 @@ describe("createOpenAISseAdapter — request body & headers", () => {
 		const ctrl = new AbortController();
 		await collectChunks(adapter.send(minimalMessages, ctrl.signal));
 
-		const headers = calls[0].init?.headers as Record<string, string> | undefined;
+		const headers = calls[0].init?.headers as
+			| Record<string, string>
+			| undefined;
 		// Normalize header name lookups (implementations may lowercase)
 		const normalize = (h: Record<string, string> | undefined, key: string) =>
 			h?.[key] ?? h?.[key.toLowerCase()] ?? h?.[key.toUpperCase()];
@@ -237,7 +243,9 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 			fetchImpl: fakeFetch(body),
 		});
 		const ctrl = new AbortController();
-		const chunks = await collectChunks(adapter.send(minimalMessages, ctrl.signal));
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
 
 		const textDeltas = chunks.filter((c) => c.type === "text-delta");
 		expect(textDeltas).toHaveLength(1);
@@ -260,7 +268,9 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 			fetchImpl: fakeFetch(body),
 		});
 		const ctrl = new AbortController();
-		const chunks = await collectChunks(adapter.send(minimalMessages, ctrl.signal));
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
 
 		const textDeltas = chunks.filter((c) => c.type === "text-delta");
 		expect(textDeltas).toHaveLength(2);
@@ -282,7 +292,9 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 			fetchImpl: fakeFetch(body),
 		});
 		const ctrl = new AbortController();
-		const chunks = await collectChunks(adapter.send(minimalMessages, ctrl.signal));
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
 
 		const doneChunks = chunks.filter((c) => c.type === "done");
 		expect(doneChunks).toHaveLength(1);
@@ -307,7 +319,9 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 			fetchImpl: fakeFetch(body),
 		});
 		const ctrl = new AbortController();
-		const chunks = await collectChunks(adapter.send(minimalMessages, ctrl.signal));
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
 
 		const textDeltas = chunks.filter((c) => c.type === "text-delta");
 		expect(textDeltas).toHaveLength(1);
@@ -330,7 +344,9 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 			fetchImpl: fakeFetch(body),
 		});
 		const ctrl = new AbortController();
-		const chunks = await collectChunks(adapter.send(minimalMessages, ctrl.signal));
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
 
 		const textDeltas = chunks.filter((c) => c.type === "text-delta");
 		expect(textDeltas).toHaveLength(1);
@@ -349,7 +365,9 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 			fetchImpl: fakeFetch(body),
 		});
 		const ctrl = new AbortController();
-		const chunks = await collectChunks(adapter.send(minimalMessages, ctrl.signal));
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
 
 		const doneChunks = chunks.filter((c) => c.type === "done");
 		expect(doneChunks).toHaveLength(1);
@@ -368,11 +386,15 @@ describe("createOpenAISseAdapter — error handling", () => {
 			fetchImpl: fakeFetch("Internal Server Error", { status: 500 }),
 		});
 		const ctrl = new AbortController();
-		const chunks = await collectChunks(adapter.send(minimalMessages, ctrl.signal));
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
 
 		expect(chunks).toHaveLength(1);
 		expect(chunks[0].type).toBe("error");
-		expect((chunks[0] as Extract<AdapterChunk, { type: "error" }>).error).toBeInstanceOf(Error);
+		expect(
+			(chunks[0] as Extract<AdapterChunk, { type: "error" }>).error,
+		).toBeInstanceOf(Error);
 	});
 
 	it("yields { type: 'error' } then ends on HTTP 400 response", async () => {
@@ -382,7 +404,9 @@ describe("createOpenAISseAdapter — error handling", () => {
 			fetchImpl: fakeFetch("Bad Request", { status: 400 }),
 		});
 		const ctrl = new AbortController();
-		const chunks = await collectChunks(adapter.send(minimalMessages, ctrl.signal));
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
 
 		expect(chunks).toHaveLength(1);
 		expect(chunks[0].type).toBe("error");
@@ -396,7 +420,9 @@ describe("createOpenAISseAdapter — error handling", () => {
 			fetchImpl: fakeFetch(body),
 		});
 		const ctrl = new AbortController();
-		const chunks = await collectChunks(adapter.send(minimalMessages, ctrl.signal));
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
 
 		const errorChunks = chunks.filter((c) => c.type === "error");
 		expect(errorChunks.length).toBeGreaterThanOrEqual(1);
@@ -408,13 +434,21 @@ describe("createOpenAISseAdapter — error handling", () => {
 
 	it("yields { type: 'error' } then ends when choices array is missing", async () => {
 		// SPEC §8.2.1: missing choices → yield error
-		const body = sseBody('data: {"no_choices":true}', "", "data: [DONE]", "", "");
+		const body = sseBody(
+			'data: {"no_choices":true}',
+			"",
+			"data: [DONE]",
+			"",
+			"",
+		);
 		const adapter = createOpenAISseAdapter({
 			url: "https://example.com/api/chat",
 			fetchImpl: fakeFetch(body),
 		});
 		const ctrl = new AbortController();
-		const chunks = await collectChunks(adapter.send(minimalMessages, ctrl.signal));
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
 
 		const errorChunks = chunks.filter((c) => c.type === "error");
 		expect(errorChunks.length).toBeGreaterThanOrEqual(1);

@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { Message } from "../../src/index.ts";
-import { ChatWidget } from "../../src/ui/widget.ts";
+import type { ChatWidget } from "../../src/ui/widget.ts";
 import {
 	cleanupWidgets,
 	getPart,

@@ -123,7 +123,9 @@ describe("markdownToNodes — fenced code blocks", () => {
 		expect(pre).not.toBeNull();
 		// The language tag itself must not appear in the rendered text content
 		expect(pre?.querySelector("code")?.textContent).not.toContain("typescript");
-		expect(pre?.querySelector("code")?.textContent).toContain("const x: number = 1;");
+		expect(pre?.querySelector("code")?.textContent).toContain(
+			"const x: number = 1;",
+		);
 	});
 
 	it("does NOT apply inline formatting inside a code block", () => {
@@ -147,14 +149,16 @@ describe("markdownToNodes — links", () => {
 	it("renders [label](https://example.com) as an <a> with correct href and text", () => {
 		// SPEC §6.2: [text](url) → <a href="…">text</a>
 		// SPEC §6.4: https:// is allowed
-		const container = mount(markdownToNodes("[click here](https://example.com)"));
+		const container = mount(
+			markdownToNodes("[click here](https://example.com)"),
+		);
 		const a = container.querySelector("a");
 		expect(a).not.toBeNull();
 		expect(a?.getAttribute("href")).toBe("https://example.com");
 		expect(a?.textContent).toBe("click here");
 	});
 
-	it("sets target=\"_blank\" and rel=\"noopener noreferrer\" on allowed links", () => {
+	it('sets target="_blank" and rel="noopener noreferrer" on allowed links', () => {
 		// SPEC §6.4: target="_blank" and rel="noopener noreferrer" are forced
 		const container = mount(markdownToNodes("[visit](https://example.com)"));
 		const a = container.querySelector("a");
@@ -241,7 +245,9 @@ describe("markdownToNodes — unsupported syntax", () => {
 
 	it("does NOT render a Markdown image `![alt](src)` as an <img>", () => {
 		// SPEC §6.2: images are explicitly not supported
-		const container = mount(markdownToNodes("![alt text](https://example.com/img.png)"));
+		const container = mount(
+			markdownToNodes("![alt text](https://example.com/img.png)"),
+		);
 		expect(container.querySelector("img")).toBeNull();
 	});
 
@@ -267,7 +273,7 @@ describe("markdownToNodes — security", () => {
 		expect(container.textContent).toContain("<script>alert(1)</script>");
 	});
 
-	it("escapes <img src=x onerror=\"alert(1)\"> as text — no <img> element", () => {
+	it('escapes <img src=x onerror="alert(1)"> as text — no <img> element', () => {
 		// SPEC §11.1: raw HTML img tag must not be created as a DOM element
 		const source = '<img src=x onerror="alert(1)">';
 		const container = mount(markdownToNodes(source));
@@ -275,7 +281,7 @@ describe("markdownToNodes — security", () => {
 		expect(container.textContent).toContain("<img");
 	});
 
-	it("escapes a raw <a href=\"javascript:...\"> as text — no <a> with javascript href", () => {
+	it('escapes a raw <a href="javascript:..."> as text — no <a> with javascript href', () => {
 		// SPEC §11.1, §11.2: raw HTML <a> with javascript: href must not produce an <a> element
 		const source = '<a href="javascript:alert(1)">click</a>';
 		const container = mount(markdownToNodes(source));

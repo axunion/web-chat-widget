@@ -1,9 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ChatWidget } from "../../src/ui/widget.ts";
-import {
-	getPart,
-	registerChatWidget,
-} from "../helpers/dom-helpers.ts";
+import { getPart, registerChatWidget } from "../helpers/dom-helpers.ts";
 
 beforeAll(registerChatWidget);
 

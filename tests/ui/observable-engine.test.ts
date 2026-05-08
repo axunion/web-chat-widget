@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Message } from "../../src/index.ts";
 import { ChatEngine } from "../../src/index.ts";
 import { ObservableEngine } from "../../src/ui/observable-engine.ts";
-import {
-	scriptedAdapter,
-	spacedAdapter,
-} from "../helpers/fake-adapters.ts";
+import { scriptedAdapter, spacedAdapter } from "../helpers/fake-adapters.ts";
 
 // ---------------------------------------------------------------------------
 // SPEC §13.1 — ObservableEngine subscribe contract

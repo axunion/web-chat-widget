@@ -42,12 +42,20 @@
 						<label><input type="radio" name="position" value="top-right" />top-right</label>
 						<label><input type="radio" name="position" value="top-left" />top-left</label>
 					</fieldset>
+					<fieldset>
+						<legend>Persist (reload to apply)</legend>
+						<label><input type="radio" name="persist" value="none" />none (memory only)</label>
+						<label><input type="radio" name="persist" value="local" />local (survives reload)</label>
+						<label><input type="radio" name="persist" value="session" />session (per tab)</label>
+					</fieldset>
 				</div>
 
 				<div class="actions">
 					<button type="button" id="open">open()</button>
 					<button type="button" id="close">close()</button>
 					<button type="button" id="send-hello">sendMessage("hello")</button>
+					<button type="button" id="clear">clear() history</button>
+					<button type="button" id="retry">retry()</button>
 				</div>
 			</section>
 		</main>

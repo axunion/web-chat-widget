@@ -6,6 +6,11 @@ import { createChatEvent } from "../core/events.ts";
 import type { LabelDictionary, Locale } from "../core/i18n.ts";
 import { resolveLabels } from "../core/i18n.ts";
 import type { Message } from "../core/messages.ts";
+import type { ChatStore } from "../core/store.ts";
+import {
+	createLocalStorageStore,
+	createSessionStorageStore,
+} from "../core/store.ts";
 import { buildFab, type FabHandle } from "./fab.ts";
 import { ObservableEngine } from "./observable-engine.ts";
 import { buildPanel, type PanelHandle } from "./panel.ts";
@@ -18,6 +23,7 @@ export type ChatWidgetPosition =
 	| "top-left";
 export type ChatWidgetTheme = "light" | "dark" | "auto";
 export type ChatWidgetApiMode = "openai-sse" | "json";
+export type ChatWidgetPersist = "local" | "session" | "none";
 
 export interface ChatWidgetOptions {
 	target?: HTMLElement;
@@ -27,6 +33,7 @@ export interface ChatWidgetOptions {
 	locale?: Locale;
 	initialMessages?: Message[];
 	messages?: Partial<LabelDictionary>;
+	store?: ChatStore;
 }
 
 const DEFAULT_POSITION: ChatWidgetPosition = "bottom-right";
@@ -165,6 +172,7 @@ export class ChatWidget extends HTMLElement {
 		this.engine = new ChatEngine({
 			adapter: resolved.adapter,
 			initialMessages: resolved.initialMessages,
+			store: resolved.store ?? undefined,
 		});
 		this.observable = new ObservableEngine(this.engine);
 		this.listenerAbort = new AbortController();
@@ -186,6 +194,16 @@ export class ChatWidget extends HTMLElement {
 	async sendMessage(text: string): Promise<void> {
 		if (!this.observable) return;
 		await this.observable.sendMessage(text);
+	}
+
+	async retry(): Promise<void> {
+		if (!this.observable) return;
+		await this.observable.retry();
+	}
+
+	clear(): void {
+		if (!this.observable) return;
+		this.observable.clear();
 	}
 
 	private wireInputHandlers(signal: AbortSignal): void {
@@ -227,6 +245,7 @@ export class ChatWidget extends HTMLElement {
 		theme: ChatWidgetTheme;
 		locale: Locale | undefined;
 		initialMessages: Message[] | undefined;
+		store: ChatStore | null;
 	} {
 		const opts = this.options;
 		const adapter = opts?.adapter ?? this.buildAdapterFromAttributes();
@@ -242,12 +261,14 @@ export class ChatWidget extends HTMLElement {
 			opts?.locale ??
 			(this.getAttribute("locale") as Locale | null) ??
 			undefined;
+		const store = opts?.store ?? this.buildStoreFromAttributes();
 		return {
 			adapter,
 			position,
 			theme,
 			locale: locale ?? undefined,
 			initialMessages: opts?.initialMessages,
+			store,
 		};
 	}
 
@@ -259,6 +280,15 @@ export class ChatWidget extends HTMLElement {
 			DEFAULT_API_MODE;
 		if (mode === "json") return createJsonAdapter({ url });
 		return createOpenAISseAdapter({ url });
+	}
+
+	private buildStoreFromAttributes(): ChatStore | null {
+		const persist = this.getAttribute("persist") as ChatWidgetPersist | null;
+		if (!persist || persist === "none") return null;
+		const key = this.getAttribute("persist-key") ?? undefined;
+		if (persist === "local") return createLocalStorageStore({ key });
+		if (persist === "session") return createSessionStorageStore({ key });
+		return null;
 	}
 
 	private applyTheme(theme: ChatWidgetTheme | null): void {

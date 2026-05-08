@@ -101,7 +101,7 @@ interface ChatWidgetOptions {
   locale?: Locale;
   initialMessages?: Message[];
   messages?: Partial<LabelDictionary>;    // 文言の部分上書き
-  // store?: ChatStore;                   // 🚧 §5 参照。現状は未実装
+  store?: ChatStore;                   // §5 参照
 }
 
 type ChatWidgetPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
@@ -123,8 +123,8 @@ type ChatWidgetApiMode  = "openai-sse" | "json";
 | `sendMessage` | `(text: string): Promise<void>` | ✅ | プログラム的にユーザー発言を送信。空文字は呼出側で防ぐこと |
 | `getMessages` | `(): readonly Message[]` | ✅ | 現在の履歴のスナップショット (内部状態のコピー) |
 | `destroy` | `(): void` | ✅ | リスナーを解除し engine を破棄。再 attach 時に再初期化される |
-| `clear` | `(): void` | 🚧 | 会話履歴を空にする。SPEC §4 / §9.9 参照。実装後は `engine.clear()` + `store.clear()` を呼ぶ |
-| `retry` | `(): Promise<void>` | 🚧 | 直前の user メッセージを再送する。SPEC §6.7 参照 (engine 側にロジックは存在、widget 公開はこれから) |
+| `clear` | `(): void` | ✅ | 会話履歴を空にする。`engine.clear()` で in-memory 履歴を空にし in-flight をabort、UI も空状態に再描画。`store.clear()` 連動は ChatStore (§9) 実装と同時 |
+| `retry` | `(): Promise<void>` | ✅ | 直前の user メッセージを再送する。前回の assistant 応答は drop され、新しい応答に置き換わる。SPEC §6.7 参照 |
 
 ### 2.3 イベント ✅
 
@@ -190,8 +190,8 @@ interface ChatEventMap {
 | `theme` | `"light" \| "dark" \| "auto"` | `"auto"` | ✅ | テーマ |
 | `api-url` | string | なし | ✅ | 既定アダプタを使う場合のエンドポイント |
 | `api-mode` | `"openai-sse" \| "json"` | `"openai-sse"` | ✅ | 既定アダプタの種別 |
-| `persist` | `"local" \| "session" \| "none"` | `"none"` | 🚧 | 内部で `createLocalStorageStore` / `createSessionStorageStore` / `createMemoryStore` を構築。SPEC §9.11 |
-| `persist-key` | string | `"web-chat-widget"` | 🚧 | ストアの保存キー。SPEC §9.11 |
+| `persist` | `"local" \| "session" \| "none"` | `"none"` | ✅ | 内部で `createLocalStorageStore` / `createSessionStorageStore` / `createMemoryStore` を構築。SPEC §9.11 |
+| `persist-key` | string | `"web-chat-widget"` | ✅ | ストアの保存キー。SPEC §9.11 |
 
 ### 3.2 動的属性変更の追従ルール
 
@@ -199,7 +199,7 @@ interface ChatEventMap {
 | --- | --- |
 | `open` / `position` / `locale` / `theme` | ○ |
 | `api-url` / `api-mode` | × (mount 時のみ評価) |
-| `persist` / `persist-key` (🚧) | × (mount 時のみ評価) |
+| `persist` / `persist-key` | × (mount 時のみ評価) |
 
 `api-url` 後の adapter 差し替え、`persist` 後のストア差し替えはどちらも JS API 経由で要素を作り直す方針。
 
@@ -320,11 +320,11 @@ const customAdapter: ChatAdapter = {
 
 ---
 
-## 5. ChatStore 🚧
+## 5. ChatStore ✅
 
-データ永続化のためのインターフェース。**現状はインターフェースも factory もコード上には存在しない**。仕様の権威は SPEC §9。
+データ永続化のためのインターフェース。`createMemoryStore` / `createLocalStorageStore` / `createSessionStorageStore` の 3 つの組込み factory を `web-chat-widget` から直接 import 可能。仕様の権威は SPEC §9。
 
-### 5.1 `ChatStore` インターフェース 🚧
+### 5.1 `ChatStore` インターフェース ✅
 
 ```ts
 interface ChatStore {
@@ -337,7 +337,7 @@ interface ChatStore {
 - すべて sync。非同期バックエンド (IndexedDB / リモート同期) は **factory が async でラップ**して sync ストアを返すパターンで吸収する (SPEC §9.2.1)
 - `save` は `text-delta` ごとには呼ばれず、`done` / `clear()` / `retry()` のタイミングのみ (SPEC §9.4)
 
-### 5.2 `createMemoryStore` 🚧
+### 5.2 `createMemoryStore` ✅
 
 ```ts
 function createMemoryStore(): ChatStore;
@@ -345,7 +345,7 @@ function createMemoryStore(): ChatStore;
 
 何も永続化しない既定実装。`store` を未指定にしたときと等価。
 
-### 5.3 `createLocalStorageStore` 🚧
+### 5.3 `createLocalStorageStore` ✅
 
 ```ts
 function createLocalStorageStore(opts?: {
@@ -360,7 +360,7 @@ function createLocalStorageStore(opts?: {
 - `QuotaExceededError` 時は古い半数を drop して再試行 → なお失敗なら memory にフォールバック (SPEC §9.7)
 - Private browsing 等で `localStorage` が使えない場合は factory 段階で memory store を返す (SPEC §9.8)
 
-### 5.4 `createSessionStorageStore` 🚧
+### 5.4 `createSessionStorageStore` ✅
 
 ```ts
 function createSessionStorageStore(opts?: {
@@ -372,7 +372,7 @@ function createSessionStorageStore(opts?: {
 - `maxMessages` は持たない (sessionStorage は容量問題が出にくいため)
 - それ以外は `createLocalStorageStore` と同様
 
-### 5.5 カスタムストアの書き方 🚧
+### 5.5 カスタムストアの書き方 ✅
 
 ```ts
 const remoteStore: ChatStore = {
@@ -466,11 +466,10 @@ chat-widget {
 
 | API | ステータス |
 | --- | --- |
-| `ChatWidget` 全般 (`new` / `mount` / 7 メソッドのうち 6 個 / 5 イベント / 6 属性) | ✅ |
-| `ChatWidget.clear()` / `retry()` | 🚧 (SPEC §4 / §6.7 / §9.9) |
-| `<chat-widget persist persist-key>` | 🚧 (SPEC §9.11) |
+| `ChatWidget` 全般 (`new` / `mount` / 8 メソッド / 5 イベント / 6 属性) | ✅ |
+| `<chat-widget persist persist-key>` | ✅ (SPEC §9.11) |
 | `ChatAdapter` interface / `createOpenAISseAdapter` / `createJsonAdapter` | ✅ |
-| `ChatStore` interface / 3 つの組込み factory | 🚧 (SPEC §9) |
+| `ChatStore` interface / 3 つの組込み factory | ✅ (SPEC §9) |
 | `LabelDictionary` / `resolveLabels` | ✅ |
 | CSS 変数 / `::part()` | ✅ |
 | `ChatEngine` (低レベル) / `createMessage` / `markdownToNodes` / `THEME_TOKENS` / `renderThemeCss` | ✅ |

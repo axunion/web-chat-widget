@@ -2,14 +2,17 @@ import type { ChatAdapter } from "../adapters/types.ts";
 import { createChatEvent } from "./events.ts";
 import type { Message } from "./messages.ts";
 import { createMessage } from "./messages.ts";
+import type { ChatStore } from "./store.ts";
 
 export interface ChatEngineOptions {
 	adapter: ChatAdapter;
 	initialMessages?: Message[];
+	store?: ChatStore;
 }
 
 export class ChatEngine extends EventTarget {
 	private readonly adapter: ChatAdapter;
+	private readonly store: ChatStore | null;
 	private messages: Message[];
 	private destroyed = false;
 	private controller: AbortController | null = null;
@@ -17,7 +20,15 @@ export class ChatEngine extends EventTarget {
 	constructor(options: ChatEngineOptions) {
 		super();
 		this.adapter = options.adapter;
-		this.messages = options.initialMessages ? [...options.initialMessages] : [];
+		this.store = options.store ?? null;
+		const stored = this.store?.load();
+		if (stored && stored.length > 0) {
+			this.messages = [...stored];
+		} else {
+			this.messages = options.initialMessages
+				? [...options.initialMessages]
+				: [];
+		}
 	}
 
 	getMessages(): readonly Message[] {
@@ -41,6 +52,9 @@ export class ChatEngine extends EventTarget {
 		const lastUserIdx = this.findLastUserIndex();
 		if (lastUserIdx === -1) return;
 		this.messages.splice(lastUserIdx + 1);
+		// Save before pushing the streaming placeholder, so the persisted
+		// snapshot is the user-only state if streaming is interrupted.
+		this.store?.save(this.messages);
 		const adapterMessages = [...this.messages];
 		const assistantMsg = createMessage("assistant", "", {
 			status: "streaming",
@@ -53,6 +67,7 @@ export class ChatEngine extends EventTarget {
 		this.ensureAlive();
 		this.abortInFlight();
 		this.messages = [];
+		this.store?.clear();
 	}
 
 	destroy(): void {
@@ -98,6 +113,7 @@ export class ChatEngine extends EventTarget {
 				}
 				if (chunk.type === "done") {
 					assistantMsg.status = "done";
+					this.store?.save(this.messages);
 					this.dispatchEvent(
 						createChatEvent("message", {
 							role: "assistant",

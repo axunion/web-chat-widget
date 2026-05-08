@@ -13,11 +13,22 @@ export type {
 	MessageStatus,
 } from "./core/messages.ts";
 export { createMessage } from "./core/messages.ts";
+export type {
+	ChatStore,
+	CreateLocalStorageStoreOptions,
+	CreateSessionStorageStoreOptions,
+} from "./core/store.ts";
+export {
+	createLocalStorageStore,
+	createMemoryStore,
+	createSessionStorageStore,
+} from "./core/store.ts";
 export type { ThemeToken } from "./core/theme.ts";
 export { renderThemeCss, THEME_TOKENS } from "./core/theme.ts";
 export type {
 	ChatWidgetApiMode,
 	ChatWidgetOptions,
+	ChatWidgetPersist,
 	ChatWidgetPosition,
 	ChatWidgetTheme,
 } from "./ui/widget.ts";

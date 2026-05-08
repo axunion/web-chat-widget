@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { AdapterChunk, ChatAdapter } from "../../src/index.ts";
 import { createJsonAdapter } from "../../src/adapters/index.ts";
+import type { AdapterChunk, ChatAdapter } from "../../src/index.ts";
 
 // SPEC §8.1  — ChatAdapter contract
 // SPEC §8.2.2 — createJsonAdapter: request shape, default extract, custom extract,
@@ -107,7 +107,9 @@ describe("createJsonAdapter — request shape", () => {
 
 		expect((calls[0].init?.method ?? "").toUpperCase()).toBe("POST");
 
-		const headers = calls[0].init?.headers as Record<string, string> | undefined;
+		const headers = calls[0].init?.headers as
+			| Record<string, string>
+			| undefined;
 		const contentType =
 			headers?.["content-type"] ??
 			headers?.["Content-Type"] ??
@@ -123,9 +125,7 @@ describe("createJsonAdapter — request shape", () => {
 			fetchImpl,
 		});
 		const ctrl = new AbortController();
-		await collectChunks(
-			adapter.send(messagesWithInternalFields, ctrl.signal),
-		);
+		await collectChunks(adapter.send(messagesWithInternalFields, ctrl.signal));
 
 		const rawBody = calls[0].init?.body as string;
 		const parsed = JSON.parse(rawBody) as { messages: unknown[] };
@@ -152,7 +152,9 @@ describe("createJsonAdapter — request shape", () => {
 		const ctrl = new AbortController();
 		await collectChunks(adapter.send(minimalMessages, ctrl.signal));
 
-		const headers = calls[0].init?.headers as Record<string, string> | undefined;
+		const headers = calls[0].init?.headers as
+			| Record<string, string>
+			| undefined;
 		const normalize = (h: Record<string, string> | undefined, key: string) =>
 			h?.[key] ?? h?.[key.toLowerCase()] ?? h?.[key.toUpperCase()];
 
@@ -242,7 +244,7 @@ describe("createJsonAdapter — custom extract", () => {
 
 	it("calls extract with the raw parsed JSON object — sentinel key survives round-trip", async () => {
 		const sentinel = { __sentinel__: true, reply: "sentinel-value" };
-		let receivedJson: unknown = undefined;
+		let receivedJson: unknown;
 
 		const adapter = createJsonAdapter({
 			url: "https://example.com/api/chat",
@@ -255,7 +257,10 @@ describe("createJsonAdapter — custom extract", () => {
 		const ctrl = new AbortController();
 		await collectChunks(adapter.send(minimalMessages, ctrl.signal));
 
-		expect(receivedJson).toMatchObject({ __sentinel__: true, reply: "sentinel-value" });
+		expect(receivedJson).toMatchObject({
+			__sentinel__: true,
+			reply: "sentinel-value",
+		});
 	});
 
 	it("yields an error chunk when extract throws", async () => {

@@ -9,7 +9,7 @@
 各節と項目の見出しに以下のいずれかを付ける。
 
 - ✅ **実装済み** — 現在のコードベースに存在する。詳細なシグネチャは API.md またはコード参照
-- 🚧 **仕様確定・未実装** — 仕様は本書で確定済み、実装は未着手
+- 🚧 **仕様確定・未実装** — 仕様は本書で確定済み、実装は未着手 (現在は該当なし)
 
 ---
 
@@ -22,7 +22,7 @@
 - ページ右下（既定）に常駐する FAB をクリックするとチャットパネルが開く
 - ユーザー入力をバックエンド API に送信し、アシスタント応答をストリーミング表示
 - バックエンド API の形式は **アダプタ** で差し替え可能
-- 履歴の永続化は **ストア** で opt-in 可能 (🚧 未実装)
+- 履歴の永続化は **ストア** で opt-in 可能
 
 ### 1.2 実装方針
 
@@ -96,7 +96,7 @@ API のシグネチャ・属性表・メソッド表・イベント表は [API.m
 | --- | --- | --- |
 | `open` / `position` / `locale` / `theme` | ○ | 表示状態のみで再構築不要 |
 | `api-url` / `api-mode` | × | mount 後の adapter 差し替えはエンジン再構築が必要なため |
-| `persist` / `persist-key` (🚧) | × | mount 後のストア差し替えはエンジン再構築が必要なため |
+| `persist` / `persist-key` | × | mount 後のストア差し替えはエンジン再構築が必要なため |
 
 `api-url` 後の adapter 差し替え、`persist` 後のストア差し替えはどちらも JS API 経由で要素を作り直す方針。
 
@@ -310,7 +310,7 @@ type AdapterChunk =
 
 ---
 
-## 9. データ永続化 (ChatStore) 🚧
+## 9. データ永続化 (ChatStore) ✅
 
 ### 9.1 動機
 
@@ -396,11 +396,11 @@ createSessionStorageStore(opts?: {
 
 ### 9.9 `clear()` の責務
 
-`ChatWidget.clear()` (🚧 未実装) を呼ぶと:
+`ChatWidget.clear()` を呼ぶと:
 
-1. `engine.clear()` でインメモリ履歴を空に
-2. `store.clear()` で永続層も purge
-3. UI を空状態に再描画
+1. `engine.clear()` でインメモリ履歴を空に (✅ 実装済み)
+2. `store.clear()` で永続層も purge (✅ ChatStore 実装済)
+3. UI を空状態に再描画 (✅ 実装済み — `ObservableEngine.notify()` 経由で log subscribe ハンドラが空配列を描画)
 
 ### 9.10 複数インスタンス
 
@@ -513,7 +513,7 @@ opt-in 永続化はユーザーの会話内容をブラウザストレージに�
 - 依存ゼロ方針のため、サプライチェーン攻撃面を最小化する
 - `devDependencies` は Biome / TypeScript / Vite / Vitest / happy-dom のみ
 
-### 12.6 永続化のプライバシー (🚧)
+### 12.6 永続化のプライバシー
 
 opt-in でストアを有効化した場合、ユーザーの会話内容がブラウザストレージ (`localStorage` / `sessionStorage` 等) に保存される。
 
@@ -562,7 +562,7 @@ src/
     theme.ts               # THEME_TOKENS, CSS 変数の単一ソース
     i18n.ts                # ロケール辞書
     events.ts              # CustomEvent 生成ヘルパ
-    store.ts               # 🚧 ChatStore interface と組込み factory
+    store.ts               # ChatStore interface と組込み factory
   ui/
     widget.ts              # ChatWidget クラス本体（Shadow DOM の組み立て）
     styles.ts              # インライン CSS 文字列
@@ -588,7 +588,7 @@ docs/
   API.md                   # 公開 API リファレンス
 ```
 
-🚧 が付いたファイルは未実装。
+すべてのファイルが実装済み。
 
 ---
 
@@ -599,7 +599,7 @@ docs/
 - `src/core/engine.ts` の `ChatEngine` クラスは UI を持たず、以下のみを管理する
   - `messages: Message[]` の状態
   - adapter の呼び出しと `text-delta` の適用
-  - ストア (🚧) の load / save
+  - ストアの load / save
   - `EventTarget` を継承したイベント発火
   - `sendMessage(text)`, `clear()`, `retry()` などの操作メソッド
 - UI (`src/ui/widget.ts`) は `ChatEngine` のインスタンスを受け取り、DOM を描画するだけ
@@ -636,10 +636,11 @@ docs/
 
 Vitest + happy-dom で `src/` をミラーした構造で書く。詳細なテストケース列挙は `tests/` 自身が権威 (現状 20 ファイル / 269 ケース)。
 
-新規実装で追加すべきテスト:
+主要テストファイル:
 
-- `tests/core/store.test.ts` 🚧 — 各 factory、quota、schema mismatch、private browsing fallback
-- `tests/ui/widget.clear.test.ts` 🚧 — `clear()` の DOM クリア / `engine.clear()` 委譲 / store.clear 連動
+- `tests/core/store.test.ts` ✅ — 各 factory、quota、schema mismatch、private browsing fallback
+- `tests/ui/widget.clear.test.ts` ✅ — `clear()` の DOM クリア / `engine.clear()` 委譲 / `store.clear()` 連動
+- `tests/ui/widget.persist.test.ts` ✅ — `persist` / `persist-key` 属性の解決、mount 後の属性変更非追従
 
 ### 15.3 ビジュアル / 手動
 

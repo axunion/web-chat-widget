@@ -25,7 +25,9 @@ export function mountWidget(options: ChatWidgetOptions): ChatWidget {
 }
 
 export function cleanupWidgets(): void {
-	for (const node of Array.from(document.body.querySelectorAll("chat-widget"))) {
+	for (const node of Array.from(
+		document.body.querySelectorAll("chat-widget"),
+	)) {
 		node.remove();
 	}
 }

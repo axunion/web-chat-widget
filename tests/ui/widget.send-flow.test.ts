@@ -5,10 +5,7 @@ import {
 	mountWidget,
 	registerChatWidget,
 } from "../helpers/dom-helpers.ts";
-import {
-	capturingAdapter,
-	stubAdapter,
-} from "../helpers/fake-adapters.ts";
+import { capturingAdapter, stubAdapter } from "../helpers/fake-adapters.ts";
 
 beforeAll(registerChatWidget);
 afterEach(cleanupWidgets);

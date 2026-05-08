@@ -15,9 +15,8 @@ function assistantNode(widget: ChatWidget): Element | null {
 	const assistant = widget.getMessages().find((m) => m.role === "assistant");
 	if (!assistant) return null;
 	return (
-		widget.shadowRoot?.querySelector(
-			`[data-message-id="${assistant.id}"]`,
-		) ?? null
+		widget.shadowRoot?.querySelector(`[data-message-id="${assistant.id}"]`) ??
+		null
 	);
 }
 

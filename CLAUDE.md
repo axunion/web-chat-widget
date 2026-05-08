@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `web-chat-widget` は、任意の Web ページに埋め込み可能なフローティング型 AI チャット UI の配布パッケージ。依存ゼロ・Web 標準のみで構成し、npm import と `<script>` タグ埋め込みの両方に対応する。
 
-**現状**: コア層・アダプタ層・UI 層・宣言的エントリ (`element.ts`) / IIFE エントリ (`iife.ts`) が実装済み。Vite library mode のビルドパイプライン（ESM + IIFE + `.d.ts`）と 2 種類の demo ページ — 開発者向け playground (`index.html` + `src/main.ts`、`pnpm dev`) と production-shaped 架空 SaaS サンプル (`demo/sample-service.html`、`pnpm demo` で IIFE を `<script>` タグ経由で読み込む) — も稼働。残りは SPEC §9 の ChatStore (履歴永続化、🚧) と §4 の `ChatWidget.clear()` / `retry()` 公開 (engine 側にロジックは存在、widget メソッドの公開はこれから)。設計判断は [docs/SPEC.md](./docs/SPEC.md)、API シグネチャは [docs/API.md](./docs/API.md) を単一の情報源とすること。
+**現状**: SPEC の全節が実装済み。コア層・アダプタ層・UI 層・宣言的エントリ (`element.ts`) / IIFE エントリ (`iife.ts`) に加え、`ChatStore` (履歴永続化、§9) と `ChatWidget.clear()` / `retry()` も公開済み。Vite library mode のビルドパイプライン（ESM + IIFE + `.d.ts`）と 2 種類の demo ページ — 開発者向け playground (`index.html` + `src/main.ts`、`pnpm dev`) と production-shaped 架空 SaaS サンプル (`demo/sample-service.html`、`pnpm demo` で IIFE を `<script>` タグ経由で読み込む) — も稼働。設計判断は [docs/SPEC.md](./docs/SPEC.md)、API シグネチャは [docs/API.md](./docs/API.md) を単一の情報源とすること。
 
 ## 開発コマンド
 
@@ -120,7 +120,7 @@ Edit / Write ツール完了後に harness 側で実行される。
 
 ### 追加 skill
 
-- [`/spec-sync`](./.claude/skills/spec-sync/SKILL.md) — SPEC.md (§3, §4, §6, §7, §8, §9 🚧, §12, §17) と `src/` を grep で照合し、`match` / `missing in src` / `extra in src` / `divergent` のドリフト表を出力。`disable-model-invocation: true` で user-only。リリース前や大規模 refactor 後に手動実行
+- [`/spec-sync`](./.claude/skills/spec-sync/SKILL.md) — SPEC.md (§3, §4, §6, §7, §8, §9, §12, §17) と `src/` を grep で照合し、`match` / `missing in src` / `extra in src` / `divergent` のドリフト表を出力。`disable-model-invocation: true` で user-only。リリース前や大規模 refactor 後に手動実行
 
 ## コードスタイル
 

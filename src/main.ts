@@ -1,7 +1,11 @@
 import "./element.ts";
 import "./style.css";
-import type { ChatAdapter } from "./index.ts";
-import { ChatWidget } from "./index.ts";
+import type { ChatAdapter, ChatStore, ChatWidgetPersist } from "./index.ts";
+import {
+	ChatWidget,
+	createLocalStorageStore,
+	createSessionStorageStore,
+} from "./index.ts";
 
 const sleep = (ms: number): Promise<void> =>
 	new Promise((resolve) => {
@@ -38,12 +42,40 @@ function createDemoAdapter(): ChatAdapter {
 	};
 }
 
+const PERSIST_PREF_KEY = "cw-playground-persist";
+const PERSIST_STORE_KEY = "cw-playground-history";
+
+function loadPersistPref(): ChatWidgetPersist {
+	const raw = localStorage.getItem(PERSIST_PREF_KEY);
+	if (raw === "local" || raw === "session") return raw;
+	return "none";
+}
+
+function buildStore(mode: ChatWidgetPersist): ChatStore | undefined {
+	if (mode === "local") {
+		return createLocalStorageStore({ key: PERSIST_STORE_KEY });
+	}
+	if (mode === "session") {
+		return createSessionStorageStore({ key: PERSIST_STORE_KEY });
+	}
+	return undefined;
+}
+
+const persistMode = loadPersistPref();
+
 const widget = ChatWidget.mount({
 	adapter: createDemoAdapter(),
 	theme: "auto",
 	locale: "ja",
 	position: "bottom-right",
+	store: buildStore(persistMode),
 });
+
+for (const el of document.querySelectorAll<HTMLInputElement>(
+	'input[name="persist"]',
+)) {
+	if (el.value === persistMode) el.checked = true;
+}
 
 function bindRadios(name: string, apply: (value: string) => void): void {
 	for (const el of document.querySelectorAll<HTMLInputElement>(
@@ -64,6 +96,12 @@ bindRadios("locale", (v) => {
 bindRadios("position", (v) => {
 	widget.setAttribute("position", v);
 });
+// SPEC §4.2: persist / persist-key are mount-time only. Reload after change
+// so the new selection takes effect on a fresh widget instance.
+bindRadios("persist", (v) => {
+	localStorage.setItem(PERSIST_PREF_KEY, v);
+	location.reload();
+});
 
 document.querySelector("#open")?.addEventListener("click", () => {
 	widget.open();
@@ -74,4 +112,10 @@ document.querySelector("#close")?.addEventListener("click", () => {
 document.querySelector("#send-hello")?.addEventListener("click", () => {
 	widget.open();
 	void widget.sendMessage("hello");
+});
+document.querySelector("#clear")?.addEventListener("click", () => {
+	widget.clear();
+});
+document.querySelector("#retry")?.addEventListener("click", () => {
+	void widget.retry();
 });
