@@ -40,14 +40,9 @@ const DEFAULT_POSITION: ChatWidgetPosition = "bottom-right";
 const DEFAULT_THEME: ChatWidgetTheme = "auto";
 const DEFAULT_API_MODE: ChatWidgetApiMode = "openai-sse";
 
-const OBSERVED_ATTRIBUTES = [
-	"open",
-	"position",
-	"locale",
-	"theme",
-	"api-url",
-	"api-mode",
-] as const;
+// api-url / api-mode / persist / persist-key are evaluated only at mount time
+// (SPEC §4.2). They are intentionally absent from observedAttributes.
+const OBSERVED_ATTRIBUTES = ["open", "position", "locale", "theme"] as const;
 
 export class ChatWidget extends HTMLElement {
 	static get observedAttributes(): readonly string[] {
