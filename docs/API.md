@@ -134,9 +134,9 @@ type ChatWidgetApiMode  = "openai-sse" | "json";
 
 | イベント | `detail` の型 | タイミング |
 | --- | --- | --- |
-| `ready` | `void` | 初期化完了（DOM 挿入とスタイル適用が済んだ時点） |
-| `open` | `void` | パネルが開いた直後 |
-| `close` | `void` | パネルが閉じた直後 |
+| `ready` | `undefined` | 初期化完了（DOM 挿入とスタイル適用が済んだ時点） |
+| `open` | `undefined` | パネルが開いた直後 |
+| `close` | `undefined` | パネルが閉じた直後 |
 | `message` | `{ role: "user" \| "assistant"; content: string }` | アシスタント応答が `done` チャンク到達で確定した時 (1 メッセージにつき 1 回)。`role` は `"system"` を含まない |
 | `error` | `{ error: Error }` | アダプタが `error` チャンクを返した、または send 内部で例外発生 |
 
@@ -166,9 +166,9 @@ interface CreateMessageOverrides {
 }
 
 interface ChatEventMap {
-  ready: void;
-  open: void;
-  close: void;
+  ready: undefined;
+  open: undefined;
+  close: undefined;
   message: { role: Exclude<MessageRole, "system">; content: string };
   error: { error: Error };
 }

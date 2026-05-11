@@ -1,9 +1,9 @@
 import type { MessageRole } from "./messages.ts";
 
 export interface ChatEventMap {
-	ready: void;
-	open: void;
-	close: void;
+	ready: undefined;
+	open: undefined;
+	close: undefined;
 	message: { role: Exclude<MessageRole, "system">; content: string };
 	error: { error: Error };
 }
