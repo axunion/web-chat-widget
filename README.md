@@ -2,7 +2,7 @@
 
 A distributable package that embeds a floating AI chat UI into any web page. Zero runtime dependencies, built on web standards only.
 
-> **Status**: pre-release. Core, adapters, UI, declarative entry, IIFE bundle, and the library-mode build pipeline are in place; the developer demo at `pnpm dev` and a production-shaped sample page at `pnpm demo` (fictional SaaS, IIFE via `<script>` tag) both run against a mock streaming adapter. The authoritative design document is [docs/SPEC.md](./docs/SPEC.md); see [docs/API.md](./docs/API.md) for the public API reference. Each section is tagged ✅ (implemented) or 🚧 (specified, not yet implemented) — currently the ChatStore (history persistence) and `clear()` / `retry()` widget methods are the main 🚧 items. Version stays below `1.0.0` until the API is judged stable.
+> **Status**: pre-release. Core, adapters, UI, declarative entry, IIFE bundle, and the library-mode build pipeline are all in place; the developer demo at `pnpm dev` and a production-shaped sample page at `pnpm demo` (fictional SaaS, IIFE via `<script>` tag) both run against a mock streaming adapter. The authoritative design document is [docs/SPEC.md](./docs/SPEC.md); see [docs/API.md](./docs/API.md) for the public API reference. Every section in SPEC is currently ✅; the 🚧 backlog (multi-thread support, file attachments, React wrapper, etc.) is consolidated in SPEC §17. Version stays below `1.0.0` until the API is judged stable.
 
 ## Highlights
 

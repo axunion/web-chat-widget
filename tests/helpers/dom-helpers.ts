@@ -31,3 +31,21 @@ export function cleanupWidgets(): void {
 		node.remove();
 	}
 }
+
+// happy-dom has no real layout, so scroll-related dimensions must be patched
+// in. Use this from any test that needs scrollHeight/clientHeight to drive
+// widget behaviour. scrollTop remains a normal writable property.
+export function patchLayout(
+	target: HTMLElement,
+	scrollHeight: number,
+	clientHeight: number,
+): void {
+	Object.defineProperty(target, "scrollHeight", {
+		value: scrollHeight,
+		configurable: true,
+	});
+	Object.defineProperty(target, "clientHeight", {
+		value: clientHeight,
+		configurable: true,
+	});
+}

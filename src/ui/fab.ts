@@ -1,8 +1,10 @@
 import type { LabelDictionary } from "../core/i18n.ts";
 import { el } from "./dom.ts";
 import { PART } from "./parts.ts";
+import { buildStrokeIcon } from "./svg.ts";
 
-const SVG_NS = "http://www.w3.org/2000/svg";
+const CHAT_ICON_PATH =
+	"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z";
 
 export interface FabHandle {
 	root: HTMLButtonElement;
@@ -21,7 +23,7 @@ export function buildFab(labels: LabelDictionary): FabHandle {
 				"aria-expanded": "false",
 			},
 		},
-		[buildChatIcon()],
+		[buildStrokeIcon(CHAT_ICON_PATH)],
 	);
 
 	function applyLabels(next: LabelDictionary): void {
@@ -36,26 +38,4 @@ export function buildFab(labels: LabelDictionary): FabHandle {
 
 	applyLabels(labels);
 	return { root, setOpen, applyLabels };
-}
-
-function buildChatIcon(): SVGSVGElement {
-	const svg = document.createElementNS(SVG_NS, "svg");
-	svg.setAttribute("viewBox", "0 0 24 24");
-	svg.setAttribute("width", "24");
-	svg.setAttribute("height", "24");
-	svg.setAttribute("fill", "none");
-	svg.setAttribute("stroke", "currentColor");
-	svg.setAttribute("stroke-width", "2");
-	svg.setAttribute("stroke-linecap", "round");
-	svg.setAttribute("stroke-linejoin", "round");
-	svg.setAttribute("aria-hidden", "true");
-
-	const bubble = document.createElementNS(SVG_NS, "path");
-	bubble.setAttribute(
-		"d",
-		"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
-	);
-	svg.appendChild(bubble);
-
-	return svg;
 }

@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `pnpm test` | Vitest を 1 回実行 |
 | `pnpm test:watch` | Vitest watch モード |
 
-単一テスト実行は Vitest 標準: `pnpm test -- path/to/file.test.ts` または `pnpm test -- -t "テスト名"`。
+単一テスト実行は `pnpm vitest run path/to/file.test.ts` が確実 (pnpm の引数渡しに依存しないため)。テスト名フィルタは `pnpm vitest run -t "テスト名"`。
 
 ## アーキテクチャの不変条件
 
@@ -41,10 +41,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 SPEC §3, §13 で確定した構成を実装済み。
 
-- `src/index.ts` — 副作用なし。`ChatWidget` クラスと型を export
+- `src/index.ts` — 副作用なし。`ChatWidget` クラス、`ChatEngine`、組込みストア factory、各種型を export
 - `src/element.ts` — `defineChatWidget()` を呼ぶだけの副作用エントリ
 - `src/adapters/index.ts` — `createOpenAISseAdapter` / `createJsonAdapter`
-- `src/iife.ts` — IIFE ビルド用。`window.ChatWidget` に class、`ChatWidget.adapters` に名前空間を attach
+- `src/iife.ts` — IIFE ビルド用。`window.ChatWidget` に class、`ChatWidget.adapters` / `ChatWidget.stores` に名前空間を attach
 - `package.json` の `exports` は `"."` / `"./element"` / `"./adapters"` の 3 つ。`"./react"` は将来 React ラッパーを公開する際に実体ファイルと同時に追加（未実装の path を public exports に晒さない方針）
 - `vite.config.ts` は `defineConfig(({ mode }) => ...)` で ESM (`mode` 既定) と IIFE (`mode === "iife"`) を分岐。dev / preview とも `publicDir: false`。library mode の build に demo は混ざらず、`scripts/copy-demo.mjs` が最後に `demo/*.html` を `dist/` にコピーすることで `vite preview` から配信される
 - `demo/sample-service.html` は `<script src="./chat-widget.iife.js?v=...">` で配布物 IIFE を読む production-shaped サンプル。コピー先 (`dist/sample-service.html`) と並べて配置されるため相対パスで解決する

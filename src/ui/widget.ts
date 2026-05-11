@@ -72,6 +72,7 @@ export class ChatWidget extends HTMLElement {
 	private listenerAbort: AbortController | null = null;
 	private initialized = false;
 	private isOpen = false;
+	private colorSchemeQuery: MediaQueryList | null = null;
 
 	constructor(options?: ChatWidgetOptions) {
 		super();
@@ -80,7 +81,11 @@ export class ChatWidget extends HTMLElement {
 		this.shadow.appendChild(buildStyleElement());
 		this.labels = resolveLabels(options?.locale, options?.messages);
 		this.fab = buildFab(this.labels);
-		this.panel = buildPanel(this.labels);
+		this.panel = buildPanel({
+			labels: this.labels,
+			onRetry: () => void this.retry(),
+			onClear: () => this.clear(),
+		});
 		// Wrapper holds data-theme so renderThemeCss()'s [data-theme="..."]
 		// selector cascades CSS variables down to both the FAB and the panel.
 		this.root = document.createElement("div");
@@ -150,6 +155,7 @@ export class ChatWidget extends HTMLElement {
 	destroy(): void {
 		this.listenerAbort?.abort();
 		this.listenerAbort = null;
+		this.unsubscribeColorScheme();
 		if (this.observable) {
 			this.observable.destroy();
 			this.observable = null;
@@ -184,8 +190,11 @@ export class ChatWidget extends HTMLElement {
 		this.wireInputHandlers(signal);
 		this.observable.subscribe((messages) => {
 			this.panel.logHandle.render(messages);
+			this.panel.setHistoryEmpty(messages.length === 0);
 		});
-		this.panel.logHandle.render(this.engine.getMessages());
+		const initialMessages = this.engine.getMessages();
+		this.panel.logHandle.render(initialMessages);
+		this.panel.setHistoryEmpty(initialMessages.length === 0);
 		this.initialized = true;
 		if (this.hasAttribute("open")) this.open();
 		this.dispatchEvent(createChatEvent("ready", undefined));
@@ -237,6 +246,13 @@ export class ChatWidget extends HTMLElement {
 
 	private readonly handleCloseClick = (): void => {
 		this.close();
+	};
+
+	private readonly handleColorSchemeChange = (
+		event: MediaQueryListEvent | { matches: boolean },
+	): void => {
+		if (!this.initialized) return;
+		this.root.setAttribute("data-theme", event.matches ? "dark" : "light");
 	};
 
 	private resolveConfig(): {
@@ -293,22 +309,39 @@ export class ChatWidget extends HTMLElement {
 
 	private applyTheme(theme: ChatWidgetTheme | null): void {
 		const effective = theme ?? DEFAULT_THEME;
-		const resolvedMode: "light" | "dark" =
-			effective === "auto"
-				? this.prefersDark()
-					? "dark"
-					: "light"
-				: effective;
-		this.root.setAttribute("data-theme", resolvedMode);
+		this.unsubscribeColorScheme();
+		if (effective === "auto") {
+			const mql = this.matchPrefersDark();
+			this.colorSchemeQuery = mql;
+			if (mql) {
+				try {
+					mql.addEventListener("change", this.handleColorSchemeChange);
+				} catch {}
+			}
+			this.root.setAttribute("data-theme", mql?.matches ? "dark" : "light");
+			return;
+		}
+		this.root.setAttribute("data-theme", effective);
 	}
 
-	private prefersDark(): boolean {
-		if (typeof matchMedia === "undefined") return false;
+	private matchPrefersDark(): MediaQueryList | null {
+		if (typeof matchMedia === "undefined") return null;
 		try {
-			return matchMedia("(prefers-color-scheme: dark)").matches;
+			return matchMedia("(prefers-color-scheme: dark)");
 		} catch {
-			return false;
+			return null;
 		}
+	}
+
+	private unsubscribeColorScheme(): void {
+		if (!this.colorSchemeQuery) return;
+		try {
+			this.colorSchemeQuery.removeEventListener(
+				"change",
+				this.handleColorSchemeChange,
+			);
+		} catch {}
+		this.colorSchemeQuery = null;
 	}
 
 	private applyPosition(position: ChatWidgetPosition | null): void {

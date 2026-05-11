@@ -5,6 +5,7 @@ export const PART = {
 	fab: "fab",
 	panel: "panel",
 	header: "header",
+	clearButton: "clear-button",
 	closeButton: "close-button",
 	log: "log",
 	message: "message",

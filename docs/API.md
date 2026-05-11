@@ -57,6 +57,7 @@ IIFE バンドルは:
 
 - `window.ChatWidget` にクラス本体を露出
 - `ChatWidget.adapters` 名前空間に `createOpenAISseAdapter` / `createJsonAdapter` 等を attach
+- `ChatWidget.stores` 名前空間に `createMemoryStore` / `createLocalStorageStore` / `createSessionStorageStore` を attach
 - 副作用で `<chat-widget>` カスタム要素も登録 (`"./element"` 相当を内包)
 
 ### 1.3 公開 export 一覧 ✅
@@ -66,18 +67,19 @@ IIFE バンドルは:
 | `web-chat-widget` (`"."`)   | `ChatWidget` クラス、`ChatEngine`、各種型 | なし |
 | `web-chat-widget/element`  | `<chat-widget>` の `customElements.define` | あり (define) |
 | `web-chat-widget/adapters` | `createOpenAISseAdapter` / `createJsonAdapter` と関連型 | なし |
-| IIFE 配布物 (`chat-widget.iife.js`) | `window.ChatWidget` + `.adapters` + `<chat-widget>` define | あり |
+| IIFE 配布物 (`chat-widget.iife.js`) | `window.ChatWidget` + `.adapters` + `.stores` + `<chat-widget>` define | あり |
 
 `"."` から具体的に export されるシンボル:
 
 | 種別 | 名前 |
 | --- | --- |
 | クラス | `ChatWidget`, `ChatEngine` |
-| 型 | `ChatWidgetOptions`, `ChatWidgetPosition`, `ChatWidgetTheme`, `ChatWidgetApiMode`, `ChatEngineOptions` |
+| 型 | `ChatWidgetOptions`, `ChatWidgetPosition`, `ChatWidgetTheme`, `ChatWidgetApiMode`, `ChatWidgetPersist`, `ChatEngineOptions` |
 | Message | `Message`, `MessageRole`, `MessageStatus`, `CreateMessageOverrides`, `createMessage` |
 | イベント | `ChatEventMap`, `ChatEventType`, `createChatEvent` |
 | i18n | `LabelDictionary`, `Locale`, `resolveLabels` |
 | Adapter | `ChatAdapter`, `AdapterChunk` |
+| Store | `ChatStore`, `CreateLocalStorageStoreOptions`, `CreateSessionStorageStoreOptions`, `createMemoryStore`, `createLocalStorageStore`, `createSessionStorageStore` |
 | テーマ | `ThemeToken`, `THEME_TOKENS`, `renderThemeCss` |
 | Markdown | `markdownToNodes` |
 
@@ -123,7 +125,7 @@ type ChatWidgetApiMode  = "openai-sse" | "json";
 | `sendMessage` | `(text: string): Promise<void>` | ✅ | プログラム的にユーザー発言を送信。空文字は呼出側で防ぐこと |
 | `getMessages` | `(): readonly Message[]` | ✅ | 現在の履歴のスナップショット (内部状態のコピー) |
 | `destroy` | `(): void` | ✅ | リスナーを解除し engine を破棄。再 attach 時に再初期化される |
-| `clear` | `(): void` | ✅ | 会話履歴を空にする。`engine.clear()` で in-memory 履歴を空にし in-flight をabort、UI も空状態に再描画。`store.clear()` 連動は ChatStore (§9) 実装と同時 |
+| `clear` | `(): void` | ✅ | 会話履歴を空にする。`engine.clear()` で in-memory 履歴を空にし in-flight を abort、UI も空状態に再描画。`store.clear()` 連動は ChatStore (§9) 実装と同時。panel header の `clear-button` からも起動 (SPEC §9.9.1) |
 | `retry` | `(): Promise<void>` | ✅ | 直前の user メッセージを再送する。前回の assistant 応答は drop され、新しい応答に置き換わる。SPEC §6.7 参照 |
 
 ### 2.3 イベント ✅
@@ -212,6 +214,7 @@ interface ChatEventMap {
 | `fab` | 閉状態のボタン |
 | `panel` | 展開パネル全体 |
 | `header` | パネル上部 |
+| `clear-button` | 履歴クリアボタン (SPEC §9.9.1) |
 | `close-button` | パネル閉じボタン |
 | `log` | メッセージ一覧のスクロールコンテナ |
 | `message` | すべてのメッセージ |

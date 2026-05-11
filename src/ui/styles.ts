@@ -173,6 +173,40 @@ const WIDGET_LAYOUT_CSS = `
 	outline-offset: 1px;
 }
 
+.header-actions {
+	display: inline-flex;
+	gap: 4px;
+	align-items: center;
+}
+
+.clear-button {
+	appearance: none;
+	border: none;
+	background: transparent;
+	color: var(--cw-color-muted);
+	cursor: pointer;
+	padding: 6px 8px;
+	border-radius: var(--cw-radius-sm);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.clear-button:hover {
+	background: var(--cw-color-surface);
+	color: var(--cw-color-text);
+}
+
+.clear-button:focus-visible {
+	outline: 2px solid var(--cw-color-primary);
+	outline-offset: 1px;
+}
+
+.clear-button:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
 /* === Log === */
 .log {
 	flex: 1;
@@ -300,6 +334,41 @@ const WIDGET_LAYOUT_CSS = `
 .message a {
 	color: inherit;
 	text-decoration: underline;
+}
+
+/* === Error / retry block === */
+.message-error {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-top: 8px;
+	font-size: 12px;
+	color: var(--cw-color-error);
+}
+
+.message-error-text {
+	color: var(--cw-color-error);
+}
+
+.message-error .retry-button {
+	appearance: none;
+	border: 1px solid var(--cw-color-error);
+	background: transparent;
+	color: var(--cw-color-error);
+	border-radius: var(--cw-radius-sm);
+	padding: 2px 10px;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.message-error .retry-button:hover {
+	background: var(--cw-color-error);
+	color: var(--cw-color-on-primary);
+}
+
+.message-error .retry-button:focus-visible {
+	outline: 2px solid var(--cw-color-error);
+	outline-offset: 1px;
 }
 
 /* === Input area === */

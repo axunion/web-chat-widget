@@ -1,6 +1,6 @@
 # web-chat-widget 仕様書
 
-> 最終更新: 2026-04-30
+> 最終更新: 2026-05-11
 
 任意の Web ページに埋め込み可能なフローティング型 AI チャット UI `web-chat-widget` の設計仕様書。**この文書は設計判断とアーキテクチャ不変条件の記録**であり、API シグネチャと利用方法のリファレンスは [API.md](./API.md) を参照すること。
 
@@ -73,7 +73,7 @@
 
 - `package.json` の `exports` は `"."` / `"./element"` / `"./adapters"` の 3 エントリのみ。`"./react"` 等の未実装パスを public exports に晒さない方針
 - 副作用の分離: `"."` (`src/index.ts`) は import しただけでは何も起きない。`customElements.define(...)` を実行したい場合は `"./element"` または IIFE を使う
-- IIFE は `<script>` 1 行で動かすため、`window.ChatWidget` にクラスと `ChatWidget.adapters` 名前空間を attach し、副作用で `<chat-widget>` も登録する
+- IIFE は `<script>` 1 行で動かすため、`window.ChatWidget` にクラスと `ChatWidget.adapters` / `ChatWidget.stores` 名前空間を attach し、副作用で `<chat-widget>` も登録する
 
 API のシグネチャは [API.md §1](./API.md#1-インストールとエントリポイント) 参照。実装ファイル / ビルド構成の詳細は CLAUDE.md と `vite.config.ts` を参照。
 
@@ -402,6 +402,18 @@ createSessionStorageStore(opts?: {
 2. `store.clear()` で永続層も purge (✅ ChatStore 実装済)
 3. UI を空状態に再描画 (✅ 実装済み — `ObservableEngine.notify()` 経由で log subscribe ハンドラが空配列を描画)
 
+### 9.9.1 履歴クリア UI ✅
+
+`ChatWidget.clear()` を JS API 経由以外からも起動できるよう、panel header にクリアボタンを設置する。
+
+- **位置**: panel header 内、close button の左隣
+- **アイコン**: ゴミ箱 (trash) スタイルの単一パス SVG (`stroke="currentColor"`)。実体は `src/ui/panel.ts` のヘルパ
+- **可視ラベル**: なし (アイコンのみ)。`aria-label` に `LabelDictionary.clearHistory` を割り当て
+- **part**: `clear-button` (§7.3 の一覧に追加)
+- **確認**: クリック時に `window.confirm(labels.clearConfirm)` を表示。OK で `widget.clear()` を呼ぶ。Cancel なら何もしない。SPEC §10.1 の非モーダル方針を保つため自前モーダルは導入しない
+- **無効化**: 履歴が空 (`getMessages().length === 0`) のときボタンは `disabled` 属性付き
+- **ロケール変更**: `aria-label` も `labels` の差し替えに追従する
+
 ### 9.10 複数インスタンス
 
 同一 `key` で複数 `ChatWidget` を同一ページに置くと履歴が混ざる。これは「動くが非推奨」と明記し、複数インスタンス利用時は `persist-key` を変える運用とする。
@@ -588,7 +600,7 @@ docs/
   API.md                   # 公開 API リファレンス
 ```
 
-すべてのファイルが実装済み。
+本節は主要ファイルのみを列挙する。実態は補助モジュール (例: `src/ui/dom.ts`, `src/ui/parts.ts`, `src/adapters/internal.ts`, `src/adapters/types.ts` 等) も含む。Engine / UI / Adapter / Store の責務分割は上記のとおり。
 
 ---
 
@@ -634,7 +646,7 @@ docs/
 
 ### 15.2 テスト対象
 
-Vitest + happy-dom で `src/` をミラーした構造で書く。詳細なテストケース列挙は `tests/` 自身が権威 (現状 20 ファイル / 269 ケース)。
+Vitest + happy-dom で `src/` をミラーした構造で書く。詳細なテストケース列挙は `tests/` 自身が権威 (現状 29 ファイル / 336 ケース)。
 
 主要テストファイル:
 
