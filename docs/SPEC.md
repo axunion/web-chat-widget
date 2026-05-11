@@ -461,6 +461,7 @@ opt-in 永続化はユーザーの会話内容をブラウザストレージに�
 - コンテナに `role="log"` と `aria-live="polite"` を付与
 - ストリーミング中の部分更新はスクリーンリーダーが騒がしくなるため、**メッセージ確定時（`done` 到達時）に一度だけ aria-live を発火**する方針
 - 実装上は、ストリーミング中は `aria-live="off"` の hidden コンテナで描画し、確定時に `aria-live="polite"` コンテナへテキストをコピーする
+- コピーは `liveHost.appendChild(div); div.textContent = message.content` で行う。これは LLM が `<img onerror=...>` や `javascript:` リンクを含む応答を返した場合でも **DOM 上にアクティブな要素を作らない** ことを `textContent` の性質で保証する一方、SR は `**bold**` 等の Markdown マークアップやリンクの URL を逐語で読み上げる。マークアップを平文化する `markdownToPlainText` 中間表現の導入は §17 backlog
 
 ### 10.3 キーボード操作
 
@@ -502,6 +503,9 @@ opt-in 永続化はユーザーの会話内容をブラウザストレージに�
 - Markdown レンダリングは allowlist 方式。対応外の記法は**必ずエスケープ済みテキスト**として描画
 - `innerHTML` / `insertAdjacentHTML` は使わない。`document.createElement` + `textContent` + `appendChild` のみ
 - アシスタント応答も同様に扱う（プロンプトインジェクションで生 HTML を吐いてくる前提）
+- aria-live `polite` コンテナへの確定メッセージコピーも `textContent` 経由なので、LLM が Markdown ソースに HTML タグや `javascript:` リンクを混ぜても **アクティブな DOM ノードにはならない**（§10.2 参照）
+- SVG アイコンの `d` 属性は `src/ui/svg.ts:buildStrokeIcon` の compile-time 定数のみで構築する。SVG path data は script 実行できないが、規律として `d` に user / assistant 入力を渡してはならない
+- `LabelDictionary` の値はホストアプリ由来の **trusted host string** として扱う。`window.confirm()` 等のテキスト sink にそのまま渡し、内部でサニタイズはしない。ホストが LLM 出力やユーザー入力をそのまま `LabelDictionary` に流し込まないこと（§11 / §9.9.1 の `clearConfirm` などに該当）
 
 ### 12.2 リンク
 
@@ -688,6 +692,7 @@ Vitest + happy-dom で `src/` をミラーした構造で書く。詳細なテ�
 - [ ] モーダルモード（フォーカストラップ付き）の任意化
 - [ ] 厳格 CSP 下での外部 CSS ファイル版
 - [ ] IndexedDB 版ストアの組込み factory
+- [ ] aria-live コンテナでマークダウンマークアップを平文化する `markdownToPlainText` 中間表現（現状は raw Markdown 文字列を `textContent` でコピー、§10.2）
 
 ---
 
