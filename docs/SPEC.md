@@ -306,6 +306,7 @@ type AdapterChunk =
 
 - **API キーをフロントエンドから直接 LLM プロバイダに送る用途は非推奨**。README にも明記
 - 既定は「ユーザー自身のバックエンドを経由する」ことを前提とし、`headers` オプションで Cookie / Bearer を追加
+- 組込みアダプタの `url` は**プロバイダではなく利用者のプロキシ**を指す。プロキシがサーバー側でキーを付与して中継する。参照実装は [`examples/backend`](../examples/backend)（Hono、publish 対象外）
 - ブラウザ埋め込み時の CORS・CSRF は利用者側の責任範囲
 
 ---

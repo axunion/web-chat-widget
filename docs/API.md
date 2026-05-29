@@ -234,6 +234,16 @@ chat-widget::part(fab) {
 
 ## 4. アダプタ ✅
 
+> **前提: 組込みアダプタの `url` は「あなた自身のバックエンド」を指す。**
+> ブラウザは LLM プロバイダの API キーを安全に保持できない（ページが持つ値はユーザーから見える）ため、widget は自前のサーバーエンドポイントに POST し、サーバー側でキーを付与してプロバイダへ中継する。認証方針は [SPEC §8.4](./SPEC.md#84-認証)、動く参照実装は [`examples/backend`](../examples/backend)（Hono プロキシ）を参照。
+>
+> バックエンドが満たすべき契約:
+>
+> | アダプタ | リクエストボディ | レスポンス |
+> | --- | --- | --- |
+> | `createOpenAISseAdapter` | `{ messages, stream: true, model? }` | `text/event-stream`、各行 `data: {"choices":[{"delta":{"content":"..."}}]}`、末尾 `data: [DONE]` |
+> | `createJsonAdapter` | `{ messages }` | `{ "reply": "..." }`（`extract` で変更可） |
+
 ### 4.1 `ChatAdapter` インターフェース ✅
 
 ```ts

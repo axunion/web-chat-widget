@@ -58,6 +58,15 @@ function buildBody(
 	return body;
 }
 
+/**
+ * Adapter for an endpoint that speaks the OpenAI-compatible SSE shape
+ * (`choices[0].delta.content` deltas, terminated by `data: [DONE]`).
+ *
+ * `url` should point at **your own backend proxy**, not directly at a provider
+ * such as api.openai.com — the browser must not hold the provider API key. The
+ * proxy attaches the key server-side and relays the stream. See SPEC §8.4 and
+ * `examples/backend` for a reference implementation.
+ */
 export function createOpenAISseAdapter(
 	options: OpenAISseAdapterOptions,
 ): ChatAdapter {

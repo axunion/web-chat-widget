@@ -49,6 +49,7 @@ SPEC §3, §13 で確定した構成を実装済み。
 - `vite.config.ts` は `defineConfig(({ mode }) => ...)` で ESM (`mode` 既定) と IIFE (`mode === "iife"`) を分岐。dev / preview とも `publicDir: false`。library mode の build に demo は混ざらず、`scripts/copy-demo.mjs` が最後に `demo/*.html` を `dist/` にコピーすることで `vite preview` から配信される
 - `demo/sample-service.html` は `<script src="./chat-widget.iife.js?v=...">` で配布物 IIFE を読む production-shaped サンプル。コピー先 (`dist/sample-service.html`) と並べて配置されるため相対パスで解決する
 - `tsconfig.build.json` で `declaration: true` / `emitDeclarationOnly: true` / `rewriteRelativeImportExtensions: true`、ただし TS 6.x は declaration 出力に `rewriteRelativeImportExtensions` を適用しないため `scripts/rewrite-dts-extensions.mjs` で post-process
+- `examples/backend/` — widget を実プロバイダに繋ぐ参照プロキシ (Hono、独自 `package.json` / 依存あり)。`files: ["dist"]` で publish 対象外。本体のランタイム依存ゼロ保証には影響しない。バックエンド契約 (リクエスト `{ messages, stream?, model? }` → OpenAI 互換 SSE / `{ reply }`) の単一の動く実例
 
 ## ドキュメント参照
 

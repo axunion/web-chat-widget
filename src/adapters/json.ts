@@ -21,6 +21,14 @@ const defaultExtract = (json: unknown): string => {
 	return (json as { reply: string }).reply;
 };
 
+/**
+ * Adapter for a non-streaming endpoint that returns a single JSON reply
+ * (`{ reply: string }` by default; override with `extract`).
+ *
+ * `url` should point at **your own backend proxy**, not directly at a provider —
+ * the browser must not hold the provider API key. The proxy attaches the key
+ * server-side. See SPEC §8.4 and `examples/backend` for a reference.
+ */
 export function createJsonAdapter(options: JsonAdapterOptions): ChatAdapter {
 	const fetchImpl = options.fetchImpl ?? fetch;
 	const extract = options.extract ?? defaultExtract;
