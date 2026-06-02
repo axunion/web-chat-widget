@@ -1,0 +1,15 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: zero-deps-guard
+      glob: "package.json"
+      run: |
+        if jq -e '((.dependencies // {}) | length) + ((.peerDependencies // {}) | length) > 0' package.json 2>/dev/null; then
+          echo "⚠ Zero-deps invariant violated: package.json now declares runtime dependencies. Per SPEC §12.5, dependencies and peerDependencies must stay empty."
+          exit 1
+        fi
+
+    - name: biome
+      glob: "src/**/*.{ts,tsx,js}"
+      stage_fixed: true
+      run: pnpm exec biome check --write {staged_files}

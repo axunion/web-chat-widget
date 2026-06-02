@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 開発コマンド
 
-パッケージマネージャは pnpm（`pnpm-lock.yaml` あり）。Node バージョンは Volta で `24.15.0` にピン留めされている。
+パッケージマネージャは pnpm（`pnpm-lock.yaml` あり）。Node バージョンは `devEngines` で `24.16.0` を指定している（`onFail: warn`）。
 
 | コマンド | 用途 |
 | --- | --- |
@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `pnpm demo` | `pnpm build && pnpm preview`。build から preview 起動まで一気通貫 |
 | `pnpm typecheck` | `tsc` (noEmit) で型チェックのみ。`src/` 全体が対象 |
 | `pnpm check` | Biome で lint / format チェック |
-| `pnpm check:write` | Biome で自動修正 |
+| `pnpm fix` | Biome で自動修正 |
 | `pnpm test` | Vitest を 1 回実行 |
 | `pnpm test:watch` | Vitest watch モード |
 
@@ -104,16 +104,16 @@ SPEC §3, §13 で確定した構成を実装済み。
 
 ## ハーネス自動化
 
-TDD サイクル以外の品質ゲートとして、`.claude/settings.json` に hooks と追加のサブエージェント / skill を登録している。MCP server は会社方針により利用しない。
+TDD サイクル以外の品質ゲートとして、git hooks (lefthook) と追加のサブエージェント / skill を登録している。MCP server は `.mcp.json` で定義し、`.claude/settings.json` の `enabledMcpjsonServers` で有効化する。
 
-### hooks (PostToolUse, matcher: `Edit|Write`)
+### git hooks (lefthook、pre-commit)
 
-Edit / Write ツール完了後に harness 側で実行される。
+`lefthook.yml` で定義。`pnpm install` 後に自動で `.git/hooks/pre-commit` が設置される。
 
 | hook | 役割 |
 | --- | --- |
-| zero-deps invariant guard | `package.json` 編集後に `dependencies` / `peerDependencies` が空でないと `systemMessage` で警告。SPEC §12.5 と [.claude/rules/zero-deps.md](./.claude/rules/zero-deps.md) を harness レベルで強制 |
-| Biome auto-check | `src/**/*.{ts,tsx,js}` を編集すると `pnpm exec biome check --write` が自動で走る。`pnpm check` を都度思い出す必要がない |
+| zero-deps-guard | `package.json` が staged のとき `dependencies` / `peerDependencies` が空でなければコミットをブロック。SPEC §12.5 と [.claude/rules/zero-deps.md](./.claude/rules/zero-deps.md) を強制 |
+| biome | `src/**/*.{ts,tsx,js}` が staged のとき `pnpm exec biome check --write` を実行し、修正済みファイルを自動 re-stage |
 
 ### 追加サブエージェント
 
