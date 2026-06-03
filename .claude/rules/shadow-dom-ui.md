@@ -20,9 +20,9 @@ These rules apply inside `src/ui/` and the Custom Element entry points. Violatin
 
 - CSS is inlined as a JS string in `src/ui/styles.ts` (or similar) and injected into the Shadow Root as a `<style>` element at mount. No external CSS file is shipped.
 - Public styling surface:
-  - CSS custom properties (see SPEC §7.2 for the authoritative list)
-  - `::part()` names (see SPEC §7.3)
-  - Any new variable or part must be added to SPEC before use — do not invent surface area ad-hoc.
+  - CSS custom properties (see API.md §7.1 for the authoritative list)
+  - `::part()` names (see API.md §3.3)
+  - Any new variable or part must be added to the docs before use — do not invent surface area ad-hoc.
 
 ## Markdown / user content
 
@@ -32,11 +32,11 @@ These rules apply inside `src/ui/` and the Custom Element entry points. Violatin
 
 ## Public API surface
 
-- Attributes / properties / methods / events exposed on `<chat-widget>` or the `ChatWidget` class are all listed in SPEC §4. Adding a new one requires a SPEC update first.
+- Attributes / properties / methods / events exposed on `<chat-widget>` or the `ChatWidget` class are all listed in API.md §2–§3. Adding a new one requires updating the docs first.
 - Dispatch events via `EventTarget` + `CustomEvent` — do not expose callback props.
 
 ## Accessibility
 
-- Panel is **non-modal** (`role="complementary"`, no `aria-modal`, no focus trap). See SPEC §10.
+- Panel is **non-modal** (`role="complementary"`, no `aria-modal`, no focus trap). See ARCHITECTURE.md §Accessibility.
 - Message log uses a two-container pattern (`aria-live="polite"` only on the committed-messages container; streaming container is silent) to avoid screen-reader spam during delta updates.
 - Keyboard: Enter = send, Shift+Enter = newline, Esc = close panel.

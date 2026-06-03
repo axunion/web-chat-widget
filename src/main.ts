@@ -96,7 +96,7 @@ bindRadios("locale", (v) => {
 bindRadios("position", (v) => {
 	widget.setAttribute("position", v);
 });
-// SPEC §4.2: persist / persist-key are mount-time only. Reload after change
+// persist / persist-key are mount-time only (see ARCHITECTURE.md §Dynamic attribute change rules). Reload after change
 // so the new selection takes effect on a fresh widget instance.
 bindRadios("persist", (v) => {
 	localStorage.setItem(PERSIST_PREF_KEY, v);

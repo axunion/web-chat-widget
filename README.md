@@ -2,7 +2,7 @@
 
 A distributable package that embeds a floating AI chat UI into any web page. Zero runtime dependencies, built on web standards only.
 
-> **Status**: pre-release. Core, adapters, UI, declarative entry, IIFE bundle, and the library-mode build pipeline are all in place; the developer demo at `pnpm dev` and a production-shaped sample page at `pnpm demo` (fictional SaaS, IIFE via `<script>` tag) both run against a mock streaming adapter. The authoritative design document is [docs/SPEC.md](./docs/SPEC.md); see [docs/API.md](./docs/API.md) for the public API reference. Every section in SPEC is currently ✅; the 🚧 backlog (multi-thread support, file attachments, React wrapper, etc.) is consolidated in SPEC §17. Version stays below `1.0.0` until the API is judged stable.
+> **Status**: pre-release. Core, adapters, UI, declarative entry, IIFE bundle, and the library-mode build pipeline are all in place. The developer demo (`pnpm dev`) and a production-shaped sample page (`pnpm demo`) both run. See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for design decisions and [docs/API.md](./docs/API.md) for the public API reference. Version stays below `1.0.0` until the API is judged stable.
 
 ## Highlights
 
@@ -26,7 +26,7 @@ A distributable package that embeds a floating AI chat UI into any web page. Zer
 > ```
 >
 > See [`examples/backend`](./examples/backend) for a ~120-line Hono proxy you
-> can copy, and SPEC §8.4 for the auth rationale.
+> can copy, and [ARCHITECTURE.md §Authentication](./docs/ARCHITECTURE.md#authentication) for the rationale.
 
 ### npm (ESM)
 
@@ -53,12 +53,12 @@ new ChatWidget({
 
 Not running an OpenAI-compatible endpoint? Return `{ "reply": "..." }` from your
 server and use `createJsonAdapter({ url: "/api/chat/json" })` instead, or
-implement the `ChatAdapter` interface for anything else (see [docs/API.md §4](./docs/API.md#4-アダプタ-)).
+implement the `ChatAdapter` interface for anything else (see [docs/API.md §4](./docs/API.md#4-adapters)).
 
 ## Documentation
 
-- [docs/SPEC.md](./docs/SPEC.md) — design decisions and architectural invariants. CSS variable list, Markdown allowlist, security/CSP rationale, `ChatStore` design, future-work backlog
-- [docs/API.md](./docs/API.md) — public API reference: type signatures, custom-element attributes, methods, events, `LabelDictionary`, `::part()` selectors, adapter / store factory options
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — design decisions and architectural invariants: zero-deps rationale, adapter/store contracts, security policy, accessibility, future-work backlog
+- [docs/API.md](./docs/API.md) — public API reference: type signatures, custom-element attributes, methods, events, `LabelDictionary`, CSS variables, `::part()` selectors, adapter / store factory options
 - CHANGELOG — to be added with the first release
 
 ## Development

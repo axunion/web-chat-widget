@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createJsonAdapter } from "../../src/adapters/index.ts";
 import type { AdapterChunk, ChatAdapter } from "../../src/index.ts";
 
-// SPEC §8.1  — ChatAdapter contract
-// SPEC §8.2.2 — createJsonAdapter: request shape, default extract, custom extract,
+// ARCHITECTURE.md §Adapter Contract  — ChatAdapter contract
+// API.md §4.3 — createJsonAdapter: request shape, default extract, custom extract,
 //               error handling, AbortSignal propagation
 
 // ---------------------------------------------------------------------------
@@ -338,7 +338,7 @@ describe("createJsonAdapter — error handling", () => {
 	});
 
 	it("yields error when extract returns a non-string value (number, null, object)", async () => {
-		// SPEC §8.2.2: extract must return string; non-string → error chunk
+		// API.md §4.3: extract must return string; non-string → error chunk
 		for (const badReturn of [42, null, { obj: true }]) {
 			const adapter = createJsonAdapter({
 				url: "https://example.com/api/chat",

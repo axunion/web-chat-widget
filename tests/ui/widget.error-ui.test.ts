@@ -1,5 +1,5 @@
 /**
- * SPEC §6.7 — error chunk / retry UI.
+ * ARCHITECTURE.md §Error and retry — error chunk / retry UI.
  *
  * On an adapter error chunk the assistant message bubble must show an
  * error indicator (part="message-error") with the localized errorGeneric

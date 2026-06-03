@@ -7,7 +7,7 @@ Run a TDD cycle for the feature described in the user's arguments.
 
 ## Steps
 
-1. **Clarify** — Read the relevant section of `docs/SPEC.md` for this feature. In 2–3 sentences, summarize the target behavior and list the public API surface involved. If SPEC is ambiguous or silent, stop here and ask the user.
+1. **Clarify** — Read the relevant section of `docs/ARCHITECTURE.md` (behavior/design) and `docs/API.md` (signatures) for this feature. In 2–3 sentences, summarize the target behavior and list the public API surface involved. If the docs are ambiguous or silent, stop here and ask the user.
 
 2. **Red** — Delegate to the `test-writer` subagent to produce failing Vitest tests under `tests/` mirroring the `src/` path. Confirm failure with `pnpm test -- <new test file>`. Do not proceed if the tests pass.
 
@@ -29,5 +29,5 @@ Run a TDD cycle for the feature described in the user's arguments.
 
 - If the feature spans more than ~200 lines of impl or 3+ modules, propose a split into 2–3 smaller cycles before starting.
 - Do not commit unless the user asks. Leave the working tree ready for review.
-- Language: English for all code / comments / identifiers; Japanese only in SPEC / CLAUDE.md / user dialogue.
+- Language: English for all code, comments, identifiers, and documentation; Japanese only in live user dialogue.
 - If `pnpm test:watch` is not already running in a terminal, suggest the user start it so they see red → green transitions live.

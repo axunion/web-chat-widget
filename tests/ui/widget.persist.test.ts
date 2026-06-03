@@ -116,7 +116,7 @@ describe("ChatWidget — persist attribute change after mount is ignored", () =>
 		// First message goes into memory-only store.
 		await widget.sendMessage("first");
 
-		// Now set persist AFTER mount — SPEC §4.2 says this must be ignored.
+		// Now set persist AFTER mount — ARCHITECTURE.md §API Design says this must be ignored.
 		widget.setAttribute("persist", "local");
 
 		// Second message — still no localStorage because the store was not swapped.

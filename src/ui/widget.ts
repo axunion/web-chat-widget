@@ -41,7 +41,7 @@ const DEFAULT_THEME: ChatWidgetTheme = "auto";
 const DEFAULT_API_MODE: ChatWidgetApiMode = "openai-sse";
 
 // api-url / api-mode / persist / persist-key are evaluated only at mount time
-// (SPEC §4.2). They are intentionally absent from observedAttributes.
+// (see ARCHITECTURE.md §Dynamic attribute change rules). Absent from observedAttributes.
 const OBSERVED_ATTRIBUTES = ["open", "position", "locale", "theme"] as const;
 
 export class ChatWidget extends HTMLElement {

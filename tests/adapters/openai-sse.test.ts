@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createOpenAISseAdapter } from "../../src/adapters/index.ts";
 import type { AdapterChunk, ChatAdapter } from "../../src/index.ts";
 
-// SPEC §8.1  — ChatAdapter contract
-// SPEC §8.2.1 — createOpenAISseAdapter: request shape, SSE stream parsing,
+// ARCHITECTURE.md §Adapter Contract  — ChatAdapter contract
+// API.md §4.2 — createOpenAISseAdapter: request shape, SSE stream parsing,
 //               error handling, AbortSignal propagation
 
 // ---------------------------------------------------------------------------
@@ -230,7 +230,7 @@ describe("createOpenAISseAdapter — request body & headers", () => {
 
 describe("createOpenAISseAdapter — stream parsing", () => {
 	it("yields a single text-delta for one data line with content", async () => {
-		// SPEC §8.2.1: extract choices[0].delta.content → yield { type: "text-delta", delta }
+		// API.md §4.2: extract choices[0].delta.content → yield { type: "text-delta", delta }
 		const body = sseBody(
 			'data: {"choices":[{"delta":{"content":"hello"}}]}',
 			"",
@@ -253,7 +253,7 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 	});
 
 	it("yields two text-delta chunks in order for two data lines", async () => {
-		// SPEC §8.2.1: multiple deltas arrive in stream order
+		// API.md §4.2: multiple deltas arrive in stream order
 		const body = sseBody(
 			'data: {"choices":[{"delta":{"content":"hel"}}]}',
 			"",
@@ -279,7 +279,7 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 	});
 
 	it("yields { type: 'done' } on data: [DONE] and iterator ends", async () => {
-		// SPEC §8.2.1: data: [DONE] → yield done and close iterator
+		// API.md §4.2: data: [DONE] → yield done and close iterator
 		const body = sseBody(
 			'data: {"choices":[{"delta":{"content":"hi"}}]}',
 			"",
@@ -304,7 +304,7 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 	});
 
 	it("skips delta events where content is empty string", async () => {
-		// SPEC §8.2.1: skip if content is undefined/empty
+		// API.md §4.2: skip if content is undefined/empty
 		const body = sseBody(
 			'data: {"choices":[{"delta":{"content":""}}]}',
 			"",
@@ -329,7 +329,7 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 	});
 
 	it("skips delta events where content field is absent", async () => {
-		// SPEC §8.2.1: skip if content is undefined
+		// API.md §4.2: skip if content is undefined
 		const body = sseBody(
 			'data: {"choices":[{"delta":{}}]}',
 			"",
@@ -354,7 +354,7 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 	});
 
 	it("yields done when stream ends without explicit [DONE] line", async () => {
-		// SPEC §8.2.1: if server closes stream without [DONE], still yield done
+		// API.md §4.2: if server closes stream without [DONE], still yield done
 		const body = sseBody(
 			'data: {"choices":[{"delta":{"content":"hi"}}]}',
 			"",
@@ -380,7 +380,7 @@ describe("createOpenAISseAdapter — stream parsing", () => {
 
 describe("createOpenAISseAdapter — error handling", () => {
 	it("yields { type: 'error' } then ends on HTTP 500 response", async () => {
-		// SPEC §8.2.1: HTTP status >= 400 → yield error
+		// API.md §4.2: HTTP status >= 400 → yield error
 		const adapter = createOpenAISseAdapter({
 			url: "https://example.com/api/chat",
 			fetchImpl: fakeFetch("Internal Server Error", { status: 500 }),
@@ -398,7 +398,7 @@ describe("createOpenAISseAdapter — error handling", () => {
 	});
 
 	it("yields { type: 'error' } then ends on HTTP 400 response", async () => {
-		// SPEC §8.2.1: HTTP status >= 400 → yield error
+		// API.md §4.2: HTTP status >= 400 → yield error
 		const adapter = createOpenAISseAdapter({
 			url: "https://example.com/api/chat",
 			fetchImpl: fakeFetch("Bad Request", { status: 400 }),
@@ -413,7 +413,7 @@ describe("createOpenAISseAdapter — error handling", () => {
 	});
 
 	it("yields { type: 'error' } then ends on malformed JSON in data payload", async () => {
-		// SPEC §8.2.1: JSON parse failure → yield error
+		// API.md §4.2: JSON parse failure → yield error
 		const body = sseBody("data: {not valid json}", "", "data: [DONE]", "", "");
 		const adapter = createOpenAISseAdapter({
 			url: "https://example.com/api/chat",
@@ -433,7 +433,7 @@ describe("createOpenAISseAdapter — error handling", () => {
 	});
 
 	it("yields { type: 'error' } then ends when choices array is missing", async () => {
-		// SPEC §8.2.1: missing choices → yield error
+		// API.md §4.2: missing choices → yield error
 		const body = sseBody(
 			'data: {"no_choices":true}',
 			"",
@@ -457,7 +457,7 @@ describe("createOpenAISseAdapter — error handling", () => {
 	});
 
 	it("yields { type: 'error' } and does NOT throw synchronously on network failure", async () => {
-		// SPEC §8.1 / adapters.md invariant: never throw — always yield error chunks
+		// ARCHITECTURE.md §Adapter Contract / adapters.md invariant: never throw — always yield error chunks
 		const adapter = createOpenAISseAdapter({
 			url: "https://example.com/api/chat",
 			fetchImpl: fakeFetch("", { throwOn: "network" }),
@@ -502,7 +502,7 @@ describe("createOpenAISseAdapter — AbortSignal", () => {
 	});
 
 	it("stops iteration when the AbortSignal is aborted mid-stream", async () => {
-		// SPEC §8.1: adapter must close iterator promptly on abort
+		// ARCHITECTURE.md §Adapter Contract: adapter must close iterator promptly on abort
 		// Build a ReadableStream that stalls after the first chunk so we can abort
 		const ctrl = new AbortController();
 
@@ -562,7 +562,7 @@ describe("createOpenAISseAdapter — AbortSignal", () => {
 
 describe("createOpenAISseAdapter — ChatAdapter contract", () => {
 	it("returns an object with a send method yielding an async iterable", () => {
-		// SPEC §8.1: send() returns AsyncIterable<AdapterChunk>
+		// ARCHITECTURE.md §Adapter Contract: send() returns AsyncIterable<AdapterChunk>
 		const adapter: ChatAdapter = createOpenAISseAdapter({
 			url: "https://example.com/api/chat",
 			fetchImpl: fakeFetch(sseBody("data: [DONE]", "", "")),

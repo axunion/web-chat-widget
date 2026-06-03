@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { isAllowedHttpUrl } from "../../src/core/sanitize.ts";
 
-// SPEC §6.4 — link href restriction: only ^https?:// is allowed
-// SPEC §11.2 — link security: javascript:, data:, etc. degrade to plain text
+// ARCHITECTURE.md §Link constraints — link href restriction: only ^https?:// is allowed
+// ARCHITECTURE.md §Link sanitization — link security: javascript:, data:, etc. degrade to plain text
 
 describe("isAllowedHttpUrl — allowed schemes", () => {
 	it("returns true for a standard https URL", () => {

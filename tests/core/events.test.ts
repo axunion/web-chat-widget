@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ChatEventMap, ChatEventType } from "../../src/index.ts";
 import { createChatEvent } from "../../src/index.ts";
 
-// SPEC §4.3 — ChatEventMap, ChatEventType, createChatEvent
+// ARCHITECTURE.md §API Design — ChatEventMap, ChatEventType, createChatEvent
 
 // -------------------------------------------------------------------------
 // Basic shape — five event types

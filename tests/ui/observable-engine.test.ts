@@ -5,7 +5,7 @@ import { ObservableEngine } from "../../src/ui/observable-engine.ts";
 import { scriptedAdapter, spacedAdapter } from "../helpers/fake-adapters.ts";
 
 // ---------------------------------------------------------------------------
-// SPEC §13.1 — ObservableEngine subscribe contract
+// ARCHITECTURE.md §Engine/UI Separation — ObservableEngine subscribe contract
 // ---------------------------------------------------------------------------
 
 describe("ObservableEngine — getMessages delegation", () => {

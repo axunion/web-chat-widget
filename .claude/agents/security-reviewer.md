@@ -9,53 +9,53 @@ You audit this chat widget's source for security regressions. Your job is to fin
 
 ## Context to load before reviewing
 
-- `docs/SPEC.md` §6 (message model), §7 (styling / `::part`), §8 (adapters), §9 (ChatStore — privacy), §12 (security). API shapes in `docs/API.md`
+- `docs/ARCHITECTURE.md` §Message Model, §Adapter Contract, §ChatStore, §Security. API shapes in `docs/API.md`.
 - `.claude/rules/shadow-dom-ui.md` and `.claude/rules/adapters.md`
 - `src/core/markdown.ts`, `src/core/sanitize.ts`, `src/ui/*.ts`, `src/adapters/*.ts`
 
 ## Review checklist (apply to the diff / current state)
 
-### 1. XSS via DOM construction → SPEC §12.1
+### 1. XSS via DOM construction → ARCHITECTURE.md §XSS
 
 - [ ] No occurrences of `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`.
 - [ ] No `eval`, `new Function`, `setTimeout(string, …)`, `setInterval(string, …)`.
 - [ ] Message rendering uses `createElement` + `textContent` (or explicitly whitelisted Markdown nodes), never string concatenation into markup.
 
-### 2. Markdown pipeline → SPEC §6.2, §6.3, §12.1
+### 2. Markdown pipeline → ARCHITECTURE.md §Markdown scope, §Sanitization
 
-- [ ] Only SPEC §6.2 features are supported. Any new production-code branch enables behavior listed there, not beyond.
+- [ ] Only the features listed in ARCHITECTURE.md §Markdown scope are supported. Any new production-code branch enables behavior listed there, not beyond.
 - [ ] Unknown / malformed syntax falls through to escaped plain text, not raw HTML.
 - [ ] Inline code / code blocks do not interpret their contents.
 
-### 3. Links → SPEC §6.4, §12.2
+### 3. Links → ARCHITECTURE.md §Link sanitization
 
 - [ ] `href` must match `^https?://`. Other schemes (`javascript:`, `data:`, `vbscript:`, `file:`) → text fallback.
 - [ ] `target="_blank"` always paired with `rel="noopener noreferrer"`.
 - [ ] No `<a>` generated without going through the central link constructor.
 
-### 4. Prompt-injection tolerance → SPEC §6.3, §12.1
+### 4. Prompt-injection tolerance → ARCHITECTURE.md §Sanitization
 
 - Assistant output is untrusted. Confirm the same sanitizer path runs for `role: "assistant"` content as for `role: "user"`.
 - Check that assistant-generated links, code fences, and images (currently blocked) cannot escape via unusual delimiters.
 
-### 5. CSP / Shadow DOM → SPEC §12.3, §12.4
+### 5. CSP / Shadow DOM → ARCHITECTURE.md §CSP, §Trusted Types
 
 - [ ] Styles injected as `<style>` text inside the Shadow Root (requires `style-src 'unsafe-inline'` — noted in README).
 - [ ] No inline event handlers (`onclick=…`) generated. Use `addEventListener`.
 - [ ] `<script>` is never created at runtime.
 
-### 6. Adapter layer → SPEC §8.1, §8.3
+### 6. Adapter layer → ARCHITECTURE.md §Adapter Contract
 
 - [ ] `fetch` calls forward the `AbortSignal` from `send(messages, signal)`.
 - [ ] Errors are yielded as `{ type: "error" }` chunks, never thrown out of the generator.
 - [ ] No hard-coded URLs, API keys, or tokens in source.
 
-### 7. Supply chain → SPEC §12.5
+### 7. Supply chain → ARCHITECTURE.md §Zero deps
 
 - [ ] `dependencies` / `peerDependencies` in `package.json` are still empty.
 - [ ] No new third-party imports in `src/**`.
 
-### 8. Demo page (`index.html`, `src/main.ts`) → SPEC §8.3, §13.2
+### 8. Demo page (`index.html`, `src/main.ts`) → ARCHITECTURE.md §Authentication
 
 - [ ] Demo only pulls from `src/` — never a CDN for the widget itself.
 - [ ] Examples do not encourage API-key-in-frontend patterns (README §authentication warning).

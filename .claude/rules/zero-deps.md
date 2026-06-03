@@ -6,7 +6,7 @@ paths:
 
 # Zero runtime dependencies
 
-This package ships with **no runtime dependencies**. It's a headline feature (see SPEC §1.2 and §12.5) and the main reason it can be embedded anywhere without supply-chain surprises.
+This package ships with **no runtime dependencies**. It's a headline feature (see ARCHITECTURE.md §Core Invariants and §Zero deps) and the main reason it can be embedded anywhere without supply-chain surprises.
 
 ## Hard rules
 
@@ -23,12 +23,12 @@ This package ships with **no runtime dependencies**. It's a headline feature (se
 - `happy-dom` (test environment — added when tests start requiring it)
 - `@testing-library/dom` (test helper — optional; add only if tests genuinely need it)
 
-Anything else needs justification. Before adding a new devDependency, update SPEC §12.5 with the reason.
+Anything else needs justification. Before adding a new devDependency, update ARCHITECTURE.md §Zero deps with the reason.
 
 ## When editing `package.json`
 
 - Verify `dependencies` and `peerDependencies` remain empty (or absent).
-- Check that the `exports` map still matches SPEC §3.2.
+- Check that the `exports` map still matches API.md §1.3.
 - Do not downgrade Node's `engines` or the Volta pin without discussing.
 
 ## Bundle check (manual until automated)

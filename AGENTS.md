@@ -1,10 +1,11 @@
-<!-- KEEP IN SYNC with AGENTS.md — these two files are mirrors.
+<!-- KEEP IN SYNC with CLAUDE.md — these two files are mirrors.
      Edit one, then copy the change to the other.
      Everything from ## Project Overview onward must stay identical between the two files. -->
 
-# CLAUDE.md
+# AGENTS.md
 
-Guidance for Claude Code (claude.ai/code) when working in this repository.
+Agent guide for this repository. Applies to any AI coding agent (Codex, Cursor, etc.).
+For Claude Code specifically, see [CLAUDE.md](./CLAUDE.md) — the body below is kept identical.
 
 ## Project Overview
 

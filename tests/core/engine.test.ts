@@ -83,7 +83,7 @@ function pausingAdapter(
 }
 
 // ---------------------------------------------------------------------------
-// SPEC §4.2.1 — Construction & getMessages
+// ARCHITECTURE.md §API Design — Construction & getMessages
 // ---------------------------------------------------------------------------
 
 describe("ChatEngine construction — empty initial state", () => {
@@ -149,7 +149,7 @@ describe("ChatEngine — getMessages type signature", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SPEC §6.5 — sendMessage streaming semantics
+// ARCHITECTURE.md §Streaming model — sendMessage streaming semantics
 // ---------------------------------------------------------------------------
 
 describe("ChatEngine.sendMessage — user message appended", () => {
@@ -246,7 +246,7 @@ describe("ChatEngine.sendMessage — adapter receives current messages", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SPEC §4.3 — message event semantics
+// ARCHITECTURE.md §API Design — message event semantics
 // ---------------------------------------------------------------------------
 
 describe("ChatEngine — message event fires once per completion", () => {
@@ -347,7 +347,7 @@ describe("ChatEngine — two sequential sends fire message event twice", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SPEC §6.7 — error handling
+// ARCHITECTURE.md §Error and retry — error handling
 // ---------------------------------------------------------------------------
 
 describe("ChatEngine — error chunk sets status and fires error event", () => {
@@ -413,7 +413,7 @@ describe("ChatEngine — thrown exception from adapter produces error state", ()
 });
 
 // ---------------------------------------------------------------------------
-// SPEC §4.2.3 — retry
+// ARCHITECTURE.md §API Design — retry
 // ---------------------------------------------------------------------------
 
 describe("ChatEngine.retry — no-op with no prior user message", () => {
@@ -483,7 +483,7 @@ describe("ChatEngine.retry — after error, assistant message reaches done on su
 });
 
 // ---------------------------------------------------------------------------
-// SPEC §4.2.3 — clear
+// ARCHITECTURE.md §API Design — clear
 // ---------------------------------------------------------------------------
 
 describe("ChatEngine.clear — empties messages", () => {
@@ -526,7 +526,7 @@ describe("ChatEngine.clear — aborts in-flight send", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SPEC §4.2.3 — destroy
+// ARCHITECTURE.md §API Design — destroy
 // ---------------------------------------------------------------------------
 
 describe("ChatEngine.destroy — aborts in-flight send", () => {
@@ -568,7 +568,7 @@ describe("ChatEngine.destroy — clear throws after destroy", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SPEC §4.3 / §13.1 — EventTarget contract
+// ARCHITECTURE.md §API Design / §13.1 — EventTarget contract
 // ---------------------------------------------------------------------------
 
 describe("ChatEngine — EventTarget inheritance", () => {
@@ -602,7 +602,7 @@ describe("ChatEngine — message event detail shape", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SPEC §9.4 / §9.5 — ChatStore integration (Phase B — RED step)
+// ARCHITECTURE.md §Save timing / §9.5 — ChatStore integration (Phase B — RED step)
 // ---------------------------------------------------------------------------
 
 // Hand-rolled fake that records all calls so assertions can inspect them.
@@ -632,7 +632,7 @@ function fakeStore(initial: Message[] = []): ChatStore & {
 	return self;
 }
 
-// B1 — SPEC §9.5: store.load() is called once at construction
+// B1 — ARCHITECTURE.md §Load timing: store.load() is called once at construction
 describe("ChatEngine + store — store.load() called once at construction", () => {
 	it("calls store.load() exactly once when ChatEngine is constructed with a store option", () => {
 		const store = fakeStore();
@@ -641,7 +641,7 @@ describe("ChatEngine + store — store.load() called once at construction", () =
 	});
 });
 
-// B2 — SPEC §9.5: messages loaded from store become initial state
+// B2 — ARCHITECTURE.md §Load timing: messages loaded from store become initial state
 describe("ChatEngine + store — store.load() result becomes initial messages", () => {
 	it("returns the messages from store.load() via getMessages() after construction", () => {
 		const storedMsg: Message = {
@@ -658,7 +658,7 @@ describe("ChatEngine + store — store.load() result becomes initial messages", 
 	});
 });
 
-// B3 — SPEC §9.5: store load wins over initialMessages when both are non-empty
+// B3 — ARCHITECTURE.md §Load timing: store load wins over initialMessages when both are non-empty
 describe("ChatEngine + store — store.load() wins over initialMessages when both non-empty", () => {
 	it("uses store messages, not initialMessages, when store.load() returns a non-empty array", () => {
 		const storedMsg: Message = {
@@ -688,7 +688,7 @@ describe("ChatEngine + store — store.load() wins over initialMessages when bot
 	});
 });
 
-// B4 — SPEC §9.5: empty store falls back to initialMessages
+// B4 — ARCHITECTURE.md §Load timing: empty store falls back to initialMessages
 describe("ChatEngine + store — empty store falls back to initialMessages", () => {
 	it("uses initialMessages when store.load() returns an empty array", () => {
 		const initialMsg: Message = {
@@ -709,7 +709,7 @@ describe("ChatEngine + store — empty store falls back to initialMessages", () 
 	});
 });
 
-// B5 — SPEC §9.4: store.save called once on done, NOT per text-delta
+// B5 — ARCHITECTURE.md §Save timing: store.save called once on done, NOT per text-delta
 describe("ChatEngine + store — store.save fires once on done, not per text-delta", () => {
 	it("calls store.save exactly once after a multi-delta sequence, with the fully accumulated assistant message", async () => {
 		const store = fakeStore();
@@ -734,7 +734,7 @@ describe("ChatEngine + store — store.save fires once on done, not per text-del
 	});
 });
 
-// B6 — SPEC §9.9: engine.clear() calls store.clear(), does NOT call store.save
+// B6 — ARCHITECTURE.md §clear() responsibility: engine.clear() calls store.clear(), does NOT call store.save
 describe("ChatEngine + store — engine.clear() calls store.clear(), not store.save", () => {
 	it("invokes store.clear() once after engine.clear() and does not increase saveCalls", async () => {
 		const store = fakeStore();
@@ -754,7 +754,7 @@ describe("ChatEngine + store — engine.clear() calls store.clear(), not store.s
 	});
 });
 
-// B7 — SPEC §9.4: store.save fires immediately after splice in retry(), before new streaming begins
+// B7 — ARCHITECTURE.md §Save timing: store.save fires immediately after splice in retry(), before new streaming begins
 describe("ChatEngine + store — store.save fires after retry() splice, before streaming resumes", () => {
 	it("saves the post-splice snapshot (user only, no assistant) before the new adapter response arrives", async () => {
 		const store = fakeStore();
@@ -798,7 +798,7 @@ describe("ChatEngine + store — store.save fires after retry() splice, before s
 		await Promise.resolve();
 		await Promise.resolve();
 
-		// SPEC §9.4: save must have been called again (post-splice, before streaming)
+		// ARCHITECTURE.md §Save timing: save must have been called again (post-splice, before streaming)
 		expect(store.saveCalls).toHaveLength(2);
 
 		// The second saved snapshot must contain the user message but NO assistant message,

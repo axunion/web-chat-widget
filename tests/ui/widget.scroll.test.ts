@@ -1,5 +1,5 @@
 /**
- * SPEC §5.7 — message log auto-scroll behavior.
+ * ARCHITECTURE.md §Floating UI Behavior — message log auto-scroll behavior.
  *
  * When a new message arrives the log container auto-scrolls to the bottom
  * only if scrollTop is within 48px of the bottom. If the user has scrolled

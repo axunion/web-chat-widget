@@ -27,7 +27,7 @@ const defaultExtract = (json: unknown): string => {
  *
  * `url` should point at **your own backend proxy**, not directly at a provider —
  * the browser must not hold the provider API key. The proxy attaches the key
- * server-side. See SPEC §8.4 and `examples/backend` for a reference.
+ * server-side. See ARCHITECTURE.md §Authentication and `examples/backend` for a reference.
  */
 export function createJsonAdapter(options: JsonAdapterOptions): ChatAdapter {
 	const fetchImpl = options.fetchImpl ?? fetch;

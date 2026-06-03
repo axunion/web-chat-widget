@@ -1,5 +1,5 @@
 /**
- * SPEC §9.9.1 — clear-history UI in the panel header.
+ * ARCHITECTURE.md §clear() responsibility — clear-history UI in the panel header.
  *
  * - A button with part="clear-button" lives inside the panel header.
  * - aria-label uses LabelDictionary.clearHistory.

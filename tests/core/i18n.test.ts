@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LabelDictionary, Locale } from "../../src/index.ts";
 import { resolveLabels } from "../../src/index.ts";
 
-// SPEC §10 — Internationalization
-// SPEC §10.1 — locale resolution: "ja" | "en", navigator.language fallback
-// SPEC §10.2 — LabelDictionary: 15 keys, JA/EN defaults, partial override
+// ARCHITECTURE.md §Internationalization — Internationalization
+// ARCHITECTURE.md §Internationalization — locale resolution: "ja" | "en", navigator.language fallback
+// ARCHITECTURE.md §Internationalization — LabelDictionary: 15 keys, JA/EN defaults, partial override
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,12 +43,12 @@ function looksEnglish(value: string): boolean {
 
 describe("resolveLabels — explicit locale argument", () => {
 	it("returns a complete JA dictionary when called with locale 'ja'", () => {
-		// SPEC §10.2: all 15 keys must be present
+		// ARCHITECTURE.md §Internationalization: all 15 keys must be present
 		const labels = resolveLabels("ja");
 
 		for (const key of ALL_KEYS) {
 			expect(labels).toHaveProperty(key);
-			// poweredBy is an unused slot so empty string is allowed per SPEC §10.2
+			// poweredBy is an unused slot so empty string is allowed per ARCHITECTURE.md §Internationalization
 			if (key !== "poweredBy") {
 				expect(
 					typeof labels[key] === "string" && labels[key].length > 0,
@@ -59,7 +59,7 @@ describe("resolveLabels — explicit locale argument", () => {
 	});
 
 	it("returns a complete EN dictionary when called with locale 'en'", () => {
-		// SPEC §10.2: all 15 keys must be present
+		// ARCHITECTURE.md §Internationalization: all 15 keys must be present
 		const labels = resolveLabels("en");
 
 		for (const key of ALL_KEYS) {
@@ -74,38 +74,38 @@ describe("resolveLabels — explicit locale argument", () => {
 	});
 
 	it("JA and EN dictionaries differ in at least the fabLabel key", () => {
-		// SPEC §10.2: each locale has its own distinct values
+		// ARCHITECTURE.md §Internationalization: each locale has its own distinct values
 		const ja = resolveLabels("ja");
 		const en = resolveLabels("en");
 		expect(ja.fabLabel).not.toBe(en.fabLabel);
 	});
 
 	it("returned object has exactly 15 keys — no extras", () => {
-		// SPEC §10.2: 15 keys defined, no implementation leakage
+		// ARCHITECTURE.md §Internationalization: 15 keys defined, no implementation leakage
 		const labels = resolveLabels("en");
 		expect(Object.keys(labels).length).toBe(15);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// §10.2 — JA dictionary spot-checks (exact values from SPEC §10.2 examples)
+// §10.2 — JA dictionary spot-checks (exact values from ARCHITECTURE.md §Internationalization examples)
 // ---------------------------------------------------------------------------
 
 describe("resolveLabels — JA dictionary values", () => {
 	it("JA fabLabel is 'AI チャットを開く'", () => {
-		// SPEC §10.2 example: fabLabel: "AI チャットを開く"
+		// ARCHITECTURE.md §Internationalization example: fabLabel: "AI チャットを開く"
 		const labels = resolveLabels("ja");
 		expect(labels.fabLabel).toBe("AI チャットを開く");
 	});
 
 	it("JA placeholder is 'メッセージを入力'", () => {
-		// SPEC §10.2 example: placeholder: "メッセージを入力"
+		// ARCHITECTURE.md §Internationalization example: placeholder: "メッセージを入力"
 		const labels = resolveLabels("ja");
 		expect(labels.placeholder).toBe("メッセージを入力");
 	});
 
 	it("JA sendButton is '送信'", () => {
-		// SPEC §10.2 example: sendButton: "送信"
+		// ARCHITECTURE.md §Internationalization example: sendButton: "送信"
 		const labels = resolveLabels("ja");
 		expect(labels.sendButton).toBe("送信");
 	});
@@ -117,14 +117,14 @@ describe("resolveLabels — JA dictionary values", () => {
 
 describe("resolveLabels — EN dictionary values", () => {
 	it("EN fabLabel is a non-empty English string with no Japanese characters", () => {
-		// SPEC §10.2: EN locale must return English text for fabLabel
+		// ARCHITECTURE.md §Internationalization: EN locale must return English text for fabLabel
 		const labels = resolveLabels("en");
 		expect(labels.fabLabel.length).toBeGreaterThan(0);
 		expect(looksEnglish(labels.fabLabel)).toBe(true);
 	});
 
 	it("EN sendButton is a non-empty English string with no Japanese characters", () => {
-		// SPEC §10.2: EN locale must return English text for sendButton
+		// ARCHITECTURE.md §Internationalization: EN locale must return English text for sendButton
 		const labels = resolveLabels("en");
 		expect(labels.sendButton.length).toBeGreaterThan(0);
 		expect(looksEnglish(labels.sendButton)).toBe(true);
@@ -137,7 +137,7 @@ describe("resolveLabels — EN dictionary values", () => {
 
 describe("resolveLabels — override behavior", () => {
 	it("a single-key override replaces that key; other keys keep locale defaults", () => {
-		// SPEC §10.2: messages option partially overrides locale defaults
+		// ARCHITECTURE.md §Internationalization: messages option partially overrides locale defaults
 		const custom = "Send it!";
 		const labels = resolveLabels("en", { sendButton: custom });
 
@@ -147,7 +147,7 @@ describe("resolveLabels — override behavior", () => {
 	});
 
 	it("multiple-key override replaces exactly those keys", () => {
-		// SPEC §10.2: partial override affects only the supplied keys
+		// ARCHITECTURE.md §Internationalization: partial override affects only the supplied keys
 		const overrides: Partial<LabelDictionary> = {
 			sendButton: "GO",
 			closeButton: "X",
@@ -162,7 +162,7 @@ describe("resolveLabels — override behavior", () => {
 	});
 
 	it("override keys do not add extra properties to the returned object", () => {
-		// SPEC §10.2: result shape is always exactly LabelDictionary (15 keys)
+		// ARCHITECTURE.md §Internationalization: result shape is always exactly LabelDictionary (15 keys)
 		// TypeScript's Partial<LabelDictionary> prevents unknown keys at compile time.
 		// At runtime we assert the count stays at 15.
 		const labels = resolveLabels("en", { sendButton: "Go" });
@@ -170,7 +170,7 @@ describe("resolveLabels — override behavior", () => {
 	});
 
 	it("empty override object returns the same values as no override", () => {
-		// SPEC §10.2: empty partial should be identical to the bare locale defaults
+		// ARCHITECTURE.md §Internationalization: empty partial should be identical to the bare locale defaults
 		const withEmpty = resolveLabels("en", {});
 		const withoutOverride = resolveLabels("en");
 
@@ -206,7 +206,7 @@ describe("resolveLabels — navigator.language fallback", () => {
 	});
 
 	it("returns JA dictionary when navigator.language starts with 'ja'", () => {
-		// SPEC §10.1: navigator.language 'ja' (or 'ja-JP') → JA locale
+		// ARCHITECTURE.md §Internationalization: navigator.language 'ja' (or 'ja-JP') → JA locale
 		vi.spyOn(navigator, "language", "get").mockReturnValue("ja-JP");
 
 		const labels = resolveLabels();
@@ -214,7 +214,7 @@ describe("resolveLabels — navigator.language fallback", () => {
 	});
 
 	it("returns EN dictionary when navigator.language is 'en-US'", () => {
-		// SPEC §10.1: navigator.language 'en-US' → EN locale
+		// ARCHITECTURE.md §Internationalization: navigator.language 'en-US' → EN locale
 		vi.spyOn(navigator, "language", "get").mockReturnValue("en-US");
 
 		const labels = resolveLabels();
@@ -222,7 +222,7 @@ describe("resolveLabels — navigator.language fallback", () => {
 	});
 
 	it("falls back to EN when navigator.language is a non-ja non-en value like 'fr-FR'", () => {
-		// SPEC §10.1: unrecognised locale → en fallback
+		// ARCHITECTURE.md §Internationalization: unrecognised locale → en fallback
 		vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
 
 		const labels = resolveLabels();

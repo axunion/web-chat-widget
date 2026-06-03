@@ -21,7 +21,7 @@ browser (widget)  --POST /api/chat/sse-->  YOUR SERVER  --key-->  OpenAI
 
 The key only ever exists on the server. Auth between the browser and your server
 is your call (session cookie, your own bearer token, etc.) — see the widget's
-SPEC §8.4.
+[ARCHITECTURE.md §Authentication](../../docs/ARCHITECTURE.md#authentication).
 
 ## Run it
 

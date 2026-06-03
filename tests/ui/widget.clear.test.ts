@@ -80,7 +80,7 @@ describe("ChatWidget.clear — aborts the in-flight adapter AbortSignal", () => 
 					}
 					signal.addEventListener("abort", () => resolve(), { once: true });
 				});
-				// Return without yielding — matches SPEC §8.2 obligation to stop on abort.
+				// Return without yielding — matches ARCHITECTURE.md §Adapter Contract obligation to stop on abort.
 			},
 		};
 

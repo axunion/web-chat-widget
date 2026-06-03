@@ -1,5 +1,5 @@
 /**
- * SPEC §7.4 — theme="auto" must follow prefers-color-scheme in real time.
+ * ARCHITECTURE.md §Theme — theme="auto" must follow prefers-color-scheme in real time.
  *
  * The applyTheme() implementation reads matchMedia once at mount time but
  * never registers a change listener, so the data-theme attribute does not

@@ -53,7 +53,7 @@ const app = new Hono();
 // token (createOpenAISseAdapter({ headers: { authorization: "..." } })).
 // Cookie-based auth additionally needs credentials, which the CORS spec forbids
 // alongside origin "*" — so credentials turn on only once ALLOWED_ORIGIN names a
-// concrete site. See SPEC §8.4 for the auth rationale.
+// concrete site. See ARCHITECTURE.md §Authentication for the rationale.
 const allowCredentials = ALLOWED_ORIGIN !== "*";
 app.use(
 	"/api/*",

@@ -7,7 +7,7 @@ paths:
 
 Applies to everything under `src/adapters/`. The adapter layer is framework-neutral and must stay that way — future React/Vue wrappers reuse it as-is.
 
-## Contract (from SPEC §8.1)
+## Contract (from ARCHITECTURE.md §Adapter Contract)
 
 ```ts
 interface ChatAdapter {
@@ -34,7 +34,7 @@ type AdapterChunk =
 ## Shape of `send`'s inputs / outputs
 
 - `messages` is `readonly`. Do not mutate it. Build any request body from a copy.
-- Body serialization is adapter-specific but must match what SPEC §8.2 describes for the built-in adapters.
+- Body serialization is adapter-specific but must match what ARCHITECTURE.md §Adapter Contract and API.md §4.2–4.3 describe for the built-in adapters.
 - Network / JSON parsing failures become `error` chunks, not rejected promises.
 
 ## Dependencies

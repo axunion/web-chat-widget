@@ -1,28 +1,19 @@
-# web-chat-widget API リファレンス
+# web-chat-widget API Reference
 
-本書は `web-chat-widget` の公開 API リファレンス。設計判断・アーキテクチャ不変条件は [SPEC.md](./SPEC.md) を参照。
-
-## ステータス凡例
-
-各 API の見出しに付ける記号:
-
-- ✅ **実装済み** — 現バージョンで利用可
-- 🚧 **仕様確定・未実装** — SPEC で確定済みだがコードはまだない
-
-未実装 API は SPEC の対応節へリンクする。実装着地後にバッジを ✅ に更新する。
+Public API reference for `web-chat-widget`. For design decisions and architectural invariants, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ---
 
-## 1. インストールとエントリポイント
+## 1. Installation and Entry Points
 
-### 1.1 npm 経由 ✅
+### 1.1 Via npm
 
 ```bash
-pnpm add web-chat-widget   # パッケージ名は公開時に確定
+pnpm add web-chat-widget
 ```
 
 ```ts
-// 命令的に組み立てる場合
+// Imperative usage
 import { ChatWidget } from "web-chat-widget";
 import { createOpenAISseAdapter } from "web-chat-widget/adapters";
 
@@ -32,18 +23,18 @@ const widget = ChatWidget.mount({
 ```
 
 ```ts
-// 宣言的に <chat-widget> を使う場合 (副作用 import)
+// Declarative usage — side-effect import registers the custom element
 import "web-chat-widget/element";
 ```
 
 ```html
-<chat-widget api-url="/api/chat" theme="auto" locale="ja"></chat-widget>
+<chat-widget api-url="/api/chat" theme="auto" locale="en"></chat-widget>
 ```
 
-### 1.2 `<script>` タグ経由 ✅
+### 1.2 Via `<script>` tag
 
 ```html
-<script src="https://cdn.example.com/web-chat-widget.iife.js"></script>
+<script src="https://cdn.example.com/chat-widget.iife.js"></script>
 <script>
   ChatWidget.mount({
     adapter: ChatWidget.adapters.createOpenAISseAdapter({
@@ -53,41 +44,41 @@ import "web-chat-widget/element";
 </script>
 ```
 
-IIFE バンドルは:
+The IIFE bundle:
 
-- `window.ChatWidget` にクラス本体を露出
-- `ChatWidget.adapters` 名前空間に `createOpenAISseAdapter` / `createJsonAdapter` 等を attach
-- `ChatWidget.stores` 名前空間に `createMemoryStore` / `createLocalStorageStore` / `createSessionStorageStore` を attach
-- 副作用で `<chat-widget>` カスタム要素も登録 (`"./element"` 相当を内包)
+- Exposes the class at `window.ChatWidget`.
+- Attaches `createOpenAISseAdapter` / `createJsonAdapter` under `ChatWidget.adapters`.
+- Attaches `createMemoryStore` / `createLocalStorageStore` / `createSessionStorageStore` under `ChatWidget.stores`.
+- Automatically registers the `<chat-widget>` custom element.
 
-### 1.3 公開 export 一覧 ✅
+### 1.3 Exported symbols
 
-| エントリ | 内容 | 副作用 |
+| Entry point | Contents | Side effects |
 | --- | --- | --- |
-| `web-chat-widget` (`"."`)   | `ChatWidget` クラス、`ChatEngine`、各種型 | なし |
-| `web-chat-widget/element`  | `<chat-widget>` の `customElements.define` | あり (define) |
-| `web-chat-widget/adapters` | `createOpenAISseAdapter` / `createJsonAdapter` と関連型 | なし |
-| IIFE 配布物 (`chat-widget.iife.js`) | `window.ChatWidget` + `.adapters` + `.stores` + `<chat-widget>` define | あり |
+| `web-chat-widget` (`"."`) | `ChatWidget` class, `ChatEngine`, and all types | None |
+| `web-chat-widget/element` | Calls `customElements.define("chat-widget", ChatWidget)` | Yes (define) |
+| `web-chat-widget/adapters` | `createOpenAISseAdapter`, `createJsonAdapter`, and related types | None |
+| IIFE (`chat-widget.iife.js`) | `window.ChatWidget` + `.adapters` + `.stores` + element define | Yes |
 
-`"."` から具体的に export されるシンボル:
+Symbols exported from `"."`:
 
-| 種別 | 名前 |
+| Category | Names |
 | --- | --- |
-| クラス | `ChatWidget`, `ChatEngine` |
-| 型 | `ChatWidgetOptions`, `ChatWidgetPosition`, `ChatWidgetTheme`, `ChatWidgetApiMode`, `ChatWidgetPersist`, `ChatEngineOptions` |
+| Classes | `ChatWidget`, `ChatEngine` |
+| Options / union types | `ChatWidgetOptions`, `ChatWidgetPosition`, `ChatWidgetTheme`, `ChatWidgetApiMode`, `ChatWidgetPersist`, `ChatEngineOptions` |
 | Message | `Message`, `MessageRole`, `MessageStatus`, `CreateMessageOverrides`, `createMessage` |
-| イベント | `ChatEventMap`, `ChatEventType`, `createChatEvent` |
+| Events | `ChatEventMap`, `ChatEventType`, `createChatEvent` |
 | i18n | `LabelDictionary`, `Locale`, `resolveLabels` |
 | Adapter | `ChatAdapter`, `AdapterChunk` |
 | Store | `ChatStore`, `CreateLocalStorageStoreOptions`, `CreateSessionStorageStoreOptions`, `createMemoryStore`, `createLocalStorageStore`, `createSessionStorageStore` |
-| テーマ | `ThemeToken`, `THEME_TOKENS`, `renderThemeCss` |
+| Theme | `ThemeToken`, `THEME_TOKENS`, `renderThemeCss` |
 | Markdown | `markdownToNodes` |
 
 ---
 
-## 2. ChatWidget クラス ✅
+## 2. ChatWidget Class
 
-### 2.1 コンストラクタ / mount ✅
+### 2.1 Constructor / mount
 
 ```ts
 class ChatWidget extends HTMLElement {
@@ -96,14 +87,14 @@ class ChatWidget extends HTMLElement {
 }
 
 interface ChatWidgetOptions {
-  target?: HTMLElement;                   // 省略時 document.body (mount 経由のみ有効)
-  adapter?: ChatAdapter;                  // 省略時は api-url 属性から自動構築
+  target?: HTMLElement;                  // defaults to document.body (mount only)
+  adapter?: ChatAdapter;                 // if omitted, built from api-url attribute
   position?: ChatWidgetPosition;
   theme?: ChatWidgetTheme;
   locale?: Locale;
   initialMessages?: Message[];
-  messages?: Partial<LabelDictionary>;    // 文言の部分上書き
-  store?: ChatStore;                   // §5 参照
+  messages?: Partial<LabelDictionary>;   // override specific UI labels
+  store?: ChatStore;
 }
 
 type ChatWidgetPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
@@ -111,36 +102,36 @@ type ChatWidgetTheme    = "light" | "dark" | "auto";
 type ChatWidgetApiMode  = "openai-sse" | "json";
 ```
 
-- `mount(options)` は `defineChatWidget()` を内部で呼び、`new ChatWidget(options)` を `target` (省略時 `document.body`) に append、生成したインスタンスを返す
-- 直接 `new ChatWidget(...)` した場合は呼出側で DOM 挿入が必要 (挿入されると `connectedCallback` で初期化される)
-- `connectedCallback` 時点で `adapter` も `api-url` 属性も無いと `Error` を throw する
+- `mount(options)` internally calls `defineChatWidget()`, constructs `new ChatWidget(options)`, appends it to `target` (default `document.body`), and returns the instance.
+- When constructing with `new ChatWidget(...)` directly, the caller is responsible for inserting it into the DOM. Initialization runs in `connectedCallback`.
+- If neither `adapter` nor an `api-url` attribute is present at `connectedCallback` time, an `Error` is thrown.
 
-### 2.2 メソッド
+### 2.2 Methods
 
-| メソッド | シグネチャ | ステータス | 説明 |
-| --- | --- | --- | --- |
-| `open` | `(): void` | ✅ | パネルを開く。すでに開いているときは no-op。`open` イベント発火 |
-| `close` | `(): void` | ✅ | パネルを閉じる。すでに閉じているときは no-op。`close` イベント発火 |
-| `toggle` | `(): void` | ✅ | 開閉を反転 |
-| `sendMessage` | `(text: string): Promise<void>` | ✅ | プログラム的にユーザー発言を送信。空文字は呼出側で防ぐこと |
-| `getMessages` | `(): readonly Message[]` | ✅ | 現在の履歴のスナップショット (内部状態のコピー) |
-| `destroy` | `(): void` | ✅ | リスナーを解除し engine を破棄。再 attach 時に再初期化される |
-| `clear` | `(): void` | ✅ | 会話履歴を空にする。`engine.clear()` で in-memory 履歴を空にし in-flight を abort、UI も空状態に再描画。`store.clear()` 連動は ChatStore (§9) 実装と同時。panel header の `clear-button` からも起動 (SPEC §9.9.1) |
-| `retry` | `(): Promise<void>` | ✅ | 直前の user メッセージを再送する。前回の assistant 応答は drop され、新しい応答に置き換わる。SPEC §6.7 参照 |
-
-### 2.3 イベント ✅
-
-`ChatWidget` は `EventTarget` を継承 (`HTMLElement` 経由)。`addEventListener(type, handler)` で購読する。すべて `bubbles: false`, `composed: false`。
-
-| イベント | `detail` の型 | タイミング |
+| Method | Signature | Description |
 | --- | --- | --- |
-| `ready` | `undefined` | 初期化完了（DOM 挿入とスタイル適用が済んだ時点） |
-| `open` | `undefined` | パネルが開いた直後 |
-| `close` | `undefined` | パネルが閉じた直後 |
-| `message` | `{ role: "user" \| "assistant"; content: string }` | アシスタント応答が `done` チャンク到達で確定した時 (1 メッセージにつき 1 回)。`role` は `"system"` を含まない |
-| `error` | `{ error: Error }` | アダプタが `error` チャンクを返した、または send 内部で例外発生 |
+| `open` | `(): void` | Opens the panel. No-op if already open. Dispatches `open` event. |
+| `close` | `(): void` | Closes the panel. No-op if already closed. Dispatches `close` event. |
+| `toggle` | `(): void` | Toggles open/closed state. |
+| `sendMessage` | `(text: string): Promise<void>` | Programmatically sends a user message. Caller is responsible for preventing empty strings. |
+| `getMessages` | `(): readonly Message[]` | Returns a snapshot copy of the current history. |
+| `destroy` | `(): void` | Detaches listeners and destroys the engine. Re-attaching the element re-initializes it. |
+| `clear` | `(): void` | Clears conversation history. Aborts any in-flight request, empties in-memory history, calls `store.clear()`, and re-renders the UI to the empty state. Also triggered by the clear button in the panel header. |
+| `retry` | `(): Promise<void>` | Resends the last user message. The previous assistant response is dropped and replaced. |
 
-`message` イベントは確定タイミングのみ。`text-delta` ごとには発火しない (UI と同じ方針)。
+### 2.3 Events
+
+`ChatWidget` inherits from `HTMLElement` (and thus `EventTarget`). Subscribe with `addEventListener(type, handler)`. All events have `bubbles: false`, `composed: false`.
+
+| Event | `detail` type | When |
+| --- | --- | --- |
+| `ready` | `undefined` | Initialization complete (DOM inserted and styles applied). |
+| `open` | `undefined` | Panel just opened. |
+| `close` | `undefined` | Panel just closed. |
+| `message` | `{ role: "user" \| "assistant"; content: string }` | An assistant response is confirmed on `done` chunk (once per message). `"system"` role is excluded. |
+| `error` | `{ error: Error }` | The adapter yielded an `error` chunk, or an internal error occurred during send. |
+
+The `message` event fires once per completed message, not on every `text-delta` chunk.
 
 ```ts
 widget.addEventListener("message", (e) => {
@@ -148,14 +139,14 @@ widget.addEventListener("message", (e) => {
 });
 ```
 
-### 2.4 型定義 ✅
+### 2.4 Types
 
 ```ts
 interface Message {
-  id: string;                                       // "msg_<base36>_<seq>_<rand>"
+  id: string;                                      // "msg_<base36>_<seq>_<rand>"
   role: "user" | "assistant" | "system";
-  content: string;                                  // 内部表現は Markdown ソース文字列
-  createdAt: number;                                // epoch ms
+  content: string;                                 // Markdown source string
+  createdAt: number;                               // epoch ms
   status?: "streaming" | "done" | "error";
 }
 
@@ -174,55 +165,55 @@ interface ChatEventMap {
 }
 ```
 
-`createMessage(role, content, overrides?)` ヘルパも `"."` から export される。テストや `initialMessages` 構築時に利用する。
+`createMessage(role, content, overrides?)` is exported from `"."` and is useful for constructing `initialMessages` or in tests.
 
 ---
 
-## 3. `<chat-widget>` カスタム要素 ✅
+## 3. `<chat-widget>` Custom Element
 
-`web-chat-widget/element` を import するか IIFE バンドルを読み込むと、`customElements.define("chat-widget", ChatWidget)` が走る。
+Importing `web-chat-widget/element` or loading the IIFE bundle calls `customElements.define("chat-widget", ChatWidget)`.
 
-### 3.1 属性表
+### 3.1 Attributes
 
-| 属性 | 型 | 既定値 | ステータス | 説明 |
-| --- | --- | --- | --- | --- |
-| `open` | boolean (presence) | なし | ✅ | 属性が存在すると開いた状態で初期化 |
-| `position` | `"bottom-right" \| "bottom-left" \| "top-right" \| "top-left"` | `"bottom-right"` | ✅ | FAB とパネルの配置 |
-| `locale` | `"ja" \| "en"` | `navigator.language` 由来 | ✅ | UI 言語 |
-| `theme` | `"light" \| "dark" \| "auto"` | `"auto"` | ✅ | テーマ |
-| `api-url` | string | なし | ✅ | 既定アダプタを使う場合のエンドポイント |
-| `api-mode` | `"openai-sse" \| "json"` | `"openai-sse"` | ✅ | 既定アダプタの種別 |
-| `persist` | `"local" \| "session" \| "none"` | `"none"` | ✅ | 内部で `createLocalStorageStore` / `createSessionStorageStore` / `createMemoryStore` を構築。SPEC §9.11 |
-| `persist-key` | string | `"web-chat-widget"` | ✅ | ストアの保存キー。SPEC §9.11 |
+| Attribute | Type | Default | Description |
+| --- | --- | --- | --- |
+| `open` | boolean (presence) | — | Panel is open on initialization when this attribute is present. |
+| `position` | `"bottom-right" \| "bottom-left" \| "top-right" \| "top-left"` | `"bottom-right"` | FAB and panel placement. |
+| `locale` | `"ja" \| "en"` | Derived from `navigator.language` | UI language. |
+| `theme` | `"light" \| "dark" \| "auto"` | `"auto"` | Color theme. `"auto"` follows `prefers-color-scheme`. |
+| `api-url` | string | — | Endpoint for the built-in adapter. Required if no `adapter` option is passed. |
+| `api-mode` | `"openai-sse" \| "json"` | `"openai-sse"` | Which built-in adapter to use when `api-url` is set. |
+| `persist` | `"local" \| "session" \| "none"` | `"none"` | Constructs the corresponding built-in store factory. |
+| `persist-key` | string | `"web-chat-widget"` | Storage key passed to the store factory. |
 
-### 3.2 動的属性変更の追従ルール
+### 3.2 Dynamic attribute change rules
 
-| 属性 | mount 後の変更を反映 |
+| Attribute | Live change reflected |
 | --- | --- |
-| `open` / `position` / `locale` / `theme` | ○ |
-| `api-url` / `api-mode` | × (mount 時のみ評価) |
-| `persist` / `persist-key` | × (mount 時のみ評価) |
+| `open` / `position` / `locale` / `theme` | Yes |
+| `api-url` / `api-mode` | No — evaluated at mount time only |
+| `persist` / `persist-key` | No — evaluated at mount time only |
 
-`api-url` 後の adapter 差し替え、`persist` 後のストア差し替えはどちらも JS API 経由で要素を作り直す方針。
+To change the adapter or store after mount, recreate the element via the JS API.
 
-### 3.3 `::part()` セレクタ ✅
+### 3.3 `::part()` selectors
 
-外部スタイルから DOM 単位の上書きをしたいときに使う。
+Use these to override individual DOM elements from outside the Shadow Root:
 
-| part 名 | 対応要素 |
+| Part name | Element |
 | --- | --- |
-| `fab` | 閉状態のボタン |
-| `panel` | 展開パネル全体 |
-| `header` | パネル上部 |
-| `clear-button` | 履歴クリアボタン (SPEC §9.9.1) |
-| `close-button` | パネル閉じボタン |
-| `log` | メッセージ一覧のスクロールコンテナ |
-| `message` | すべてのメッセージ |
-| `message-user` / `message-assistant` / `message-system` | role 別メッセージ |
-| `message-error` | エラー表示 |
-| `input-area` | 入力欄周辺 |
-| `input` | `<textarea>` |
-| `send-button` | 送信ボタン |
+| `fab` | The closed-state button |
+| `panel` | The expanded panel container |
+| `header` | Panel header bar |
+| `clear-button` | History clear button |
+| `close-button` | Panel close button |
+| `log` | Message list scroll container |
+| `message` | Any message bubble |
+| `message-user` / `message-assistant` / `message-system` | Role-specific message bubbles |
+| `message-error` | Error display row |
+| `input-area` | Container wrapping the textarea and send button |
+| `input` | The `<textarea>` element |
+| `send-button` | Send button |
 
 ```css
 chat-widget::part(fab) {
@@ -232,19 +223,18 @@ chat-widget::part(fab) {
 
 ---
 
-## 4. アダプタ ✅
+## 4. Adapters
 
-> **前提: 組込みアダプタの `url` は「あなた自身のバックエンド」を指す。**
-> ブラウザは LLM プロバイダの API キーを安全に保持できない（ページが持つ値はユーザーから見える）ため、widget は自前のサーバーエンドポイントに POST し、サーバー側でキーを付与してプロバイダへ中継する。認証方針は [SPEC §8.4](./SPEC.md#84-認証)、動く参照実装は [`examples/backend`](../examples/backend)（Hono プロキシ）を参照。
+> **Important:** Point the built-in adapter `url` at **your own backend proxy**, not directly at an LLM provider. API keys cannot be stored securely in a browser page. Your proxy runs server-side, attaches the key, and forwards the request. A working reference implementation is in [`examples/backend`](../examples/backend) (Hono). See [Authentication](./ARCHITECTURE.md#authentication) in ARCHITECTURE.md.
 >
-> バックエンドが満たすべき契約:
+> Backend contract:
 >
-> | アダプタ | リクエストボディ | レスポンス |
+> | Adapter | Request body | Response |
 > | --- | --- | --- |
-> | `createOpenAISseAdapter` | `{ messages, stream: true, model? }` | `text/event-stream`、各行 `data: {"choices":[{"delta":{"content":"..."}}]}`、末尾 `data: [DONE]` |
-> | `createJsonAdapter` | `{ messages }` | `{ "reply": "..." }`（`extract` で変更可） |
+> | `createOpenAISseAdapter` | `{ messages, stream: true, model? }` | `text/event-stream`; lines `data: {"choices":[{"delta":{"content":"..."}}]}`; ends with `data: [DONE]` |
+> | `createJsonAdapter` | `{ messages }` | `{ "reply": "..." }` (customizable via `extract`) |
 
-### 4.1 `ChatAdapter` インターフェース ✅
+### 4.1 `ChatAdapter` interface
 
 ```ts
 interface ChatAdapter {
@@ -260,13 +250,13 @@ type AdapterChunk =
   | { type: "error"; error: Error };
 ```
 
-実装上の義務 (詳細は SPEC §8 と `.claude/rules/adapters.md`):
+Implementation obligations (see also [ARCHITECTURE.md — Adapter Contract](./ARCHITECTURE.md#adapter-contract)):
 
-- 同期 throw しない。失敗は `{ type: "error", error }` を yield
-- `signal.aborted` を見て `fetch` をキャンセルしイテレータを終了
-- 成功時は最後に `{ type: "done" }` を 1 回 yield してから return
+- Never throw synchronously. Yield `{ type: "error", error }` instead.
+- Forward `signal` to `fetch`; check `signal.aborted` between chunks.
+- On success, yield exactly one `{ type: "done" }` as the final chunk.
 
-### 4.2 `createOpenAISseAdapter` ✅
+### 4.2 `createOpenAISseAdapter`
 
 ```ts
 function createOpenAISseAdapter(options: OpenAISseAdapterOptions): ChatAdapter;
@@ -274,21 +264,21 @@ function createOpenAISseAdapter(options: OpenAISseAdapterOptions): ChatAdapter;
 interface OpenAISseAdapterOptions {
   url: string;
   headers?: Record<string, string>;
-  model?: string;                        // 指定すると body に含まれる
-  fetchImpl?: typeof fetch;              // テスト注入用
+  model?: string;           // included in the request body when set
+  fetchImpl?: typeof fetch; // for test injection
 }
 ```
 
-挙動:
+Behavior:
 
-- HTTP `POST url`、`Content-Type: application/json`
-- body: `{ messages: [{ role, content }], stream: true, model? }`
-- `text/event-stream` を行ごとにパースし、`choices[0].delta.content` を `text-delta` として yield
-- `data: [DONE]` で `done` を yield
-- fetch 失敗 / 4xx・5xx ステータス / JSON parse 失敗 / `choices` 欠落は `error`
-- `signal` をそのまま `fetch` に渡し、レスポンス reader は `finally` で `cancel()`
+- `POST url` with `Content-Type: application/json`.
+- Body: `{ messages: [{ role, content }], stream: true, model? }`.
+- Parses `text/event-stream` line by line, yielding `text-delta` from `choices[0].delta.content`.
+- Yields `done` on `data: [DONE]`.
+- Yields `error` on fetch failure, 4xx/5xx status, JSON parse failure, or missing `choices`.
+- Passes `signal` directly to `fetch`; `finally` block calls `cancel()` on the reader.
 
-### 4.3 `createJsonAdapter` ✅
+### 4.3 `createJsonAdapter`
 
 ```ts
 function createJsonAdapter(options: JsonAdapterOptions): ChatAdapter;
@@ -296,21 +286,21 @@ function createJsonAdapter(options: JsonAdapterOptions): ChatAdapter;
 interface JsonAdapterOptions {
   url: string;
   headers?: Record<string, string>;
-  extract?: (json: unknown) => string;   // 既定: json.reply (string でなければ throw)
+  extract?: (json: unknown) => string; // default: returns json.reply (throws if not a string)
   fetchImpl?: typeof fetch;
 }
 ```
 
-挙動:
+Behavior:
 
-- HTTP `POST url`、ボディは `{ messages }`
-- レスポンスを `await response.json()` し、`extract(parsed)` で文字列を抽出
-- 1 回の `text-delta` + `done` を yield して終了
-- `extract` が string 以外を返した・throw した場合は `error`
+- `POST url` with body `{ messages }`.
+- `await response.json()`, then calls `extract(parsed)` to get the reply string.
+- Yields one `text-delta` + `done`.
+- Yields `error` if `extract` throws or returns a non-string.
 
-### 4.4 カスタムアダプタの書き方 ✅
+### 4.4 Writing a custom adapter
 
-`ChatAdapter` を実装すれば任意のバックエンドに対応できる。WebSocket・モック・複数バックエンド分岐などはここで差し替える。
+Any object implementing `ChatAdapter` works. Use this for WebSocket, mocks, multi-backend routing, etc.:
 
 ```ts
 const customAdapter: ChatAdapter = {
@@ -333,133 +323,132 @@ const customAdapter: ChatAdapter = {
 
 ---
 
-## 5. ChatStore ✅
+## 5. ChatStore
 
-データ永続化のためのインターフェース。`createMemoryStore` / `createLocalStorageStore` / `createSessionStorageStore` の 3 つの組込み factory を `web-chat-widget` から直接 import 可能。仕様の権威は SPEC §9。
+Optional persistence layer for conversation history. Import the built-in factories from `web-chat-widget`. For design rationale, see [ARCHITECTURE.md — ChatStore](./ARCHITECTURE.md#chatstore).
 
-### 5.1 `ChatStore` インターフェース ✅
+### 5.1 `ChatStore` interface
 
 ```ts
 interface ChatStore {
-  load(): Message[];                          // sync。constructor 起動時に 1 回
-  save(messages: readonly Message[]): void;   // 状態確定時 (done / clear / retry)
-  clear(): void;                              // 永続層を purge
+  load(): Message[];                          // called once synchronously in the engine constructor
+  save(messages: readonly Message[]): void;   // called on done / clear() / retry()
+  clear(): void;                              // purges the persistent layer
 }
 ```
 
-- すべて sync。非同期バックエンド (IndexedDB / リモート同期) は **factory が async でラップ**して sync ストアを返すパターンで吸収する (SPEC §9.2.1)
-- `save` は `text-delta` ごとには呼ばれず、`done` / `clear()` / `retry()` のタイミングのみ (SPEC §9.4)
+- All methods are synchronous. For async backends, use an async factory that returns a sync store.
+- `save` is not called on every `text-delta` — only when state is settled.
 
-### 5.2 `createMemoryStore` ✅
+### 5.2 `createMemoryStore`
 
 ```ts
 function createMemoryStore(): ChatStore;
 ```
 
-何も永続化しない既定実装。`store` を未指定にしたときと等価。
+No-op persistence; same behavior as omitting the `store` option entirely.
 
-### 5.3 `createLocalStorageStore` ✅
+### 5.3 `createLocalStorageStore`
 
 ```ts
 function createLocalStorageStore(opts?: {
-  key?: string;             // 既定 "web-chat-widget"
-  maxMessages?: number;     // 既定 100
+  key?: string;          // default: "web-chat-widget"
+  maxMessages?: number;  // default: 100
 }): ChatStore;
 ```
 
-- ブラウザの `localStorage` に永続化する
-- 保存形式は `{ "v": 1, "messages": [...] }` (SPEC §9.6)
-- `maxMessages` を超えたメッセージは古い順に drop してから save
-- `QuotaExceededError` 時は古い半数を drop して再試行 → なお失敗なら memory にフォールバック (SPEC §9.7)
-- Private browsing 等で `localStorage` が使えない場合は factory 段階で memory store を返す (SPEC §9.8)
+- Persists to `localStorage`.
+- Storage format: `{ "v": 1, "messages": [...] }`.
+- Drops oldest messages when `maxMessages` is exceeded.
+- On `QuotaExceededError`: drops the oldest half and retries once; on continued failure, silently falls back to memory.
+- If `localStorage` is unavailable (e.g. private browsing), returns a memory store at factory time.
 
-### 5.4 `createSessionStorageStore` ✅
+### 5.4 `createSessionStorageStore`
 
 ```ts
 function createSessionStorageStore(opts?: {
-  key?: string;             // 既定 "web-chat-widget"
+  key?: string; // default: "web-chat-widget"
 }): ChatStore;
 ```
 
-- `sessionStorage` に保存する。タブを閉じると消える
-- `maxMessages` は持たない (sessionStorage は容量問題が出にくいため)
-- それ以外は `createLocalStorageStore` と同様
+- Persists to `sessionStorage`. Data is lost when the tab closes.
+- No `maxMessages` limit.
+- Same fallback behavior as `createLocalStorageStore`.
 
-### 5.5 カスタムストアの書き方 ✅
+### 5.5 Writing a custom store
 
 ```ts
-const remoteStore: ChatStore = {
-  load() {
-    // 起動時 sync な手段でしか取れないため、リモート同期は factory で先読みする
-    return cachedSnapshot;
-  },
-  save(messages) {
-    enqueueRemoteSave(messages);   // fire-and-forget
-  },
-  clear() {
-    cachedSnapshot = [];
-    enqueueRemoteClear();
-  },
-};
-
-// 想定例: factory で先読みしてから sync ストアを返す
+// Example: async factory that produces a sync store
 async function createRemoteStore(api: RemoteApi): Promise<ChatStore> {
   const snapshot = await api.fetchInitial();
-  return makeRemoteStore(snapshot, api);
+  return {
+    load() {
+      return snapshot;
+    },
+    save(messages) {
+      enqueueRemoteSave(messages); // fire-and-forget
+    },
+    clear() {
+      snapshot = [];
+      enqueueRemoteClear();
+    },
+  };
 }
+
+const store = await createRemoteStore(myApi);
+const widget = new ChatWidget({ adapter, store });
 ```
 
-詳細な責務 (`clear()` の連動範囲・複数インスタンス・プライバシー) は SPEC §9.9 〜 §9.12。
+Multiple `ChatWidget` instances using the same storage key will mix their histories. Use distinct `persist-key` values when running multiple instances.
 
 ---
 
-## 6. ロケールと文言 ✅
+## 6. Locale and Labels
 
-### 6.1 `LabelDictionary` 全 15 キー
+### 6.1 `LabelDictionary` — all 15 keys
 
 ```ts
 interface LabelDictionary {
-  fabLabel: string;            // 例: "AI チャットを開く"
-  panelTitle: string;          // 例: "AI アシスタント"
-  closeButton: string;         // 例: "閉じる"
-  placeholder: string;         // 例: "メッセージを入力"
-  sendButton: string;          // 例: "送信"
-  errorGeneric: string;        // 例: "応答を取得できませんでした"
-  errorRetry: string;          // 例: "再試行"
-  emptyState: string;          // 例: "何でも聞いてください。"
-  typingLabel: string;         // aria 用: "応答を生成中"
-  user: string;                // "あなた"
-  assistant: string;           // "アシスタント"
-  system: string;              // "システム"
-  clearHistory: string;        // "履歴をクリア"
-  clearConfirm: string;        // "履歴を削除しますか？"
-  poweredBy: string;           // 未使用スロット (将来のフッター用、既定 "")
+  fabLabel: string;       // tooltip / aria-label on the FAB
+  panelTitle: string;     // panel header title
+  closeButton: string;    // close button aria-label
+  placeholder: string;    // textarea placeholder
+  sendButton: string;     // send button label
+  errorGeneric: string;   // generic error message
+  errorRetry: string;     // retry button label
+  emptyState: string;     // message shown when history is empty
+  typingLabel: string;    // aria label during streaming: "Generating response"
+  user: string;           // aria role label for user messages
+  assistant: string;      // aria role label for assistant messages
+  system: string;         // aria role label for system messages
+  clearHistory: string;   // clear button aria-label
+  clearConfirm: string;   // window.confirm prompt before clearing
+  poweredBy: string;      // footer slot, unused by default (empty string)
 }
 ```
 
-組込みロケールは `"ja"` と `"en"` の 2 種類。`navigator.language` が `ja` で始まるなら `"ja"`、それ以外は `"en"`。
+Built-in locales: `"ja"` and `"en"`. The locale is resolved from `navigator.language` (maps `ja*` to `"ja"`, everything else to `"en"`) unless overridden.
 
-### 6.2 部分上書き
+### 6.2 Partial override
 
 ```ts
 new ChatWidget({
-  locale: "ja",
+  locale: "en",
   messages: {
-    placeholder: "質問をどうぞ",
-    sendButton: "送る",
+    placeholder: "Ask anything…",
+    sendButton: "Send",
   },
+  // unspecified keys use the "en" built-in defaults
 });
 ```
 
-指定しなかったキーはロケール既定値が使われる。実装は `resolveLabels(locale, override)` (i18n.ts) で `Partial<LabelDictionary>` をマージするだけのシンプルな構造。
-
 ---
 
-## 7. CSS カスタマイズ ✅
+## 7. CSS Customization
 
-### 7.1 公開 CSS 変数
+### 7.1 CSS Custom Properties
 
-完全な一覧と用途は [SPEC §7.2](./SPEC.md#72-公開する-css-custom-properties) を参照。CSS 変数は Shadow DOM の境界を貫通するため、ホストページから単純に上書きできる。
+CSS variables are the primary theming surface. They inherit through the Shadow DOM boundary, so setting them on `chat-widget` (or any ancestor) is sufficient:
 
 ```css
 chat-widget {
@@ -469,20 +458,29 @@ chat-widget {
 }
 ```
 
-### 7.2 `::part()` セレクタ
+| Property | Light default | Dark default | Purpose |
+| --- | --- | --- | --- |
+| `--cw-color-primary` | `#2563eb` | `#60a5fa` | Accent color for FAB, send button, and focus rings |
+| `--cw-color-on-primary` | `#ffffff` | `#0b1220` | Foreground color on primary |
+| `--cw-color-bg` | `#ffffff` | `#0f172a` | Panel background |
+| `--cw-color-surface` | `#f1f5f9` | `#1e293b` | Assistant message bubble background |
+| `--cw-color-user-bubble` | `#2563eb` | `#3b82f6` | User message bubble |
+| `--cw-color-user-text` | `#ffffff` | `#ffffff` | User bubble text color |
+| `--cw-color-text` | `#0f172a` | `#e2e8f0` | Body text |
+| `--cw-color-muted` | `#64748b` | `#94a3b8` | Muted text and system role |
+| `--cw-color-border` | `#e2e8f0` | `#334155` | Dividers and borders |
+| `--cw-color-error` | `#dc2626` | `#f87171` | Error text and indicator |
+| `--cw-radius` | `16px` | same | Panel and bubble border radius |
+| `--cw-radius-sm` | `8px` | same | Small corner radius (input etc.) |
+| `--cw-font-family` | system-ui stack | same | Font stack |
+| `--cw-font-size` | `14px` | same | Body font size |
+| `--cw-panel-width` | `380px` | same | Desktop panel width |
+| `--cw-panel-height` | `600px` | same | Panel max height |
+| `--cw-fab-size` | `56px` | same | FAB diameter |
+| `--cw-offset` | `20px` | same | Viewport edge offset |
+| `--cw-z-index` | `2147483000` | same | Stacking order (not max, intentionally — avoids collision with existing sites) |
+| `--cw-shadow` | `0 10px 30px rgba(0,0,0,.15)` | `0 10px 30px rgba(0,0,0,.6)` | Panel shadow |
 
-[§3.3](#33-part-セレクタ) を参照。
+### 7.2 `::part()` selectors
 
----
-
-## 8. ステータスサマリ
-
-| API | ステータス |
-| --- | --- |
-| `ChatWidget` 全般 (`new` / `mount` / 8 メソッド / 5 イベント / 6 属性) | ✅ |
-| `<chat-widget persist persist-key>` | ✅ (SPEC §9.11) |
-| `ChatAdapter` interface / `createOpenAISseAdapter` / `createJsonAdapter` | ✅ |
-| `ChatStore` interface / 3 つの組込み factory | ✅ (SPEC §9) |
-| `LabelDictionary` / `resolveLabels` | ✅ |
-| CSS 変数 / `::part()` | ✅ |
-| `ChatEngine` (低レベル) / `createMessage` / `markdownToNodes` / `THEME_TOKENS` / `renderThemeCss` | ✅ |
+See [§3.3](#33-part-selectors) for the full list and usage example.

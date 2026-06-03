@@ -4,7 +4,7 @@ import {
 	type SseEvent,
 } from "../../src/adapters/sse-parse.ts";
 
-// SPEC §8.2.1 — SSE line parser used internally by createOpenAISseAdapter
+// API.md §4.2 — SSE line parser used internally by createOpenAISseAdapter
 // The parser must be stateful: partial chunks buffer until a blank-line
 // terminator arrives. `data: [DONE]` terminates the stream.
 

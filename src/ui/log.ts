@@ -138,7 +138,7 @@ export function buildLog(
 		return node;
 	}
 
-	// User content stays plain text per SPEC §6.2 (XSS containment).
+	// User content stays plain text (XSS containment — see ARCHITECTURE.md §Sanitization).
 	function updateMessageNode(node: HTMLDivElement, message: Message): void {
 		node.setAttribute("data-status", message.status ?? "done");
 		if (message.role === "user") {

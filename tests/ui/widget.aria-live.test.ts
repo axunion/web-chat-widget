@@ -1,5 +1,5 @@
 /**
- * SPEC §10.2 — two-container aria-live pattern.
+ * ARCHITECTURE.md §aria-live pattern — two-container aria-live pattern.
  *
  * Streaming deltas render in an aria-live="off" container (streamingHost);
  * on the terminal "done" chunk the assistant message's plain text is copied

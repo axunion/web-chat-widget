@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Message } from "../../src/index.ts";
 import { createMessage } from "../../src/index.ts";
 
-// SPEC §4.4 — Message interface
-// SPEC §6.1 — role semantics and createMessage factory
+// API.md §2.4 — Message interface
+// ARCHITECTURE.md §Message Model — role semantics and createMessage factory
 
 describe("Message interface shape", () => {
 	it("returns an object with all required fields", () => {

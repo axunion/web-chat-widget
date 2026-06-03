@@ -8,11 +8,11 @@ import {
 	createSessionStorageStore,
 } from "../../src/core/store.ts";
 
-// SPEC §9.2  — ChatStore interface (load / save / clear, all sync)
-// SPEC §9.3  — createMemoryStore / createLocalStorageStore / createSessionStorageStore
-// SPEC §9.6  — storage format { v: 1, messages: [...] } and schema validation
-// SPEC §9.7  — QuotaExceededError: drop older half and retry; fallback to memory on double failure
-// SPEC §9.8  — private-browsing sentinel probe; return memory store if probe throws
+// ARCHITECTURE.md §ChatStore  — ChatStore interface (load / save / clear, all sync)
+// API.md §5  — createMemoryStore / createLocalStorageStore / createSessionStorageStore
+// ARCHITECTURE.md §Storage format  — storage format { v: 1, messages: [...] } and schema validation
+// ARCHITECTURE.md §Quota handling  — QuotaExceededError: drop older half and retry; fallback to memory on double failure
+// ARCHITECTURE.md §Storage exception resilience  — private-browsing sentinel probe; return memory store if probe throws
 
 // ---------------------------------------------------------------------------
 // Shared fixture helpers
@@ -82,7 +82,7 @@ class FakeStorage implements Storage {
 
 describe("createMemoryStore — initial state", () => {
 	it("load() returns an empty array on a fresh memory store", () => {
-		// SPEC §9.2: load() returns Message[]; fresh store has no messages
+		// ARCHITECTURE.md §ChatStore: load() returns Message[]; fresh store has no messages
 		const store: ChatStore = createMemoryStore();
 		expect(store.load()).toEqual([]);
 	});
@@ -90,7 +90,7 @@ describe("createMemoryStore — initial state", () => {
 
 describe("createMemoryStore — save and load", () => {
 	it("load() returns the saved messages after save()", () => {
-		// SPEC §9.2: save(messages) then load() should return equal content
+		// ARCHITECTURE.md §ChatStore: save(messages) then load() should return equal content
 		const store: ChatStore = createMemoryStore();
 		const messages = [msg("hello"), msg("world")];
 		store.save(messages);
@@ -98,7 +98,7 @@ describe("createMemoryStore — save and load", () => {
 	});
 
 	it("load() returns empty after save() then clear()", () => {
-		// SPEC §9.2: clear() purges the store; load() returns [] afterwards
+		// ARCHITECTURE.md §ChatStore: clear() purges the store; load() returns [] afterwards
 		const store: ChatStore = createMemoryStore();
 		store.save([msg("hello")]);
 		store.clear();
@@ -106,7 +106,7 @@ describe("createMemoryStore — save and load", () => {
 	});
 
 	it("internal mutation of the saved array does not affect subsequent load()", () => {
-		// SPEC §9.2: save() should store a defensive snapshot, not a live reference
+		// ARCHITECTURE.md §ChatStore: save() should store a defensive snapshot, not a live reference
 		// If the implementation holds a reference, mutating the original array after
 		// save would change what load() returns — that must NOT happen.
 		const store: ChatStore = createMemoryStore();
@@ -134,8 +134,8 @@ describe("createLocalStorageStore — default key and storage format", () => {
 	});
 
 	it("save() writes JSON with v:1 and messages array to the default key", () => {
-		// SPEC §9.6: storage format is { "v": 1, "messages": [...] }
-		// SPEC §9.3: default key is "web-chat-widget"
+		// ARCHITECTURE.md §Storage format: storage format is { "v": 1, "messages": [...] }
+		// API.md §5: default key is "web-chat-widget"
 		const store = createLocalStorageStore();
 		const m = msg("hello");
 		store.save([m]);
@@ -154,7 +154,7 @@ describe("createLocalStorageStore — default key and storage format", () => {
 	});
 
 	it("save() writes to the custom key when key option is provided", () => {
-		// SPEC §9.3: opts.key overrides the default "web-chat-widget"
+		// API.md §5: opts.key overrides the default "web-chat-widget"
 		const store = createLocalStorageStore({ key: "alt" });
 		store.save([msg("alt-key-test")]);
 
@@ -164,7 +164,7 @@ describe("createLocalStorageStore — default key and storage format", () => {
 	});
 
 	it("a second store instance sharing the same key sees saved messages via load()", () => {
-		// SPEC §9.3: cross-instance restore — two instances with the same key
+		// API.md §5: cross-instance restore — two instances with the same key
 		const store1 = createLocalStorageStore({ key: "shared" });
 		const m = msg("persisted message");
 		store1.save([m]);
@@ -176,7 +176,7 @@ describe("createLocalStorageStore — default key and storage format", () => {
 	});
 
 	it("maxMessages:3 with 5 saves keeps only the 3 most recent messages", () => {
-		// SPEC §9.3: maxMessages truncates older messages before writing
+		// API.md §5: maxMessages truncates older messages before writing
 		const store = createLocalStorageStore({ key: "trunc", maxMessages: 3 });
 		const messages = [
 			createMessage("user", "oldest"),
@@ -201,7 +201,7 @@ describe("createLocalStorageStore — default key and storage format", () => {
 });
 
 // ---------------------------------------------------------------------------
-// createLocalStorageStore — schema validation (SPEC §9.6)
+// createLocalStorageStore — schema validation (ARCHITECTURE.md §Storage format)
 // ---------------------------------------------------------------------------
 
 describe("createLocalStorageStore — schema validation on load", () => {
@@ -211,14 +211,14 @@ describe("createLocalStorageStore — schema validation on load", () => {
 	});
 
 	it("load() returns [] when the stored value is malformed JSON", () => {
-		// SPEC §9.6: JSON parse failure → discard, return []
+		// ARCHITECTURE.md §Storage format: JSON parse failure → discard, return []
 		globalThis.localStorage.setItem("web-chat-widget", "{not json");
 		const store = createLocalStorageStore();
 		expect(store.load()).toEqual([]);
 	});
 
 	it("load() returns [] when the stored value has a mismatched version (v !== 1)", () => {
-		// SPEC §9.6: v mismatch → discard, return []
+		// ARCHITECTURE.md §Storage format: v mismatch → discard, return []
 		globalThis.localStorage.setItem(
 			"web-chat-widget",
 			JSON.stringify({ v: 999, messages: [] }),
@@ -228,7 +228,7 @@ describe("createLocalStorageStore — schema validation on load", () => {
 	});
 
 	it("a subsequent save() after version mismatch overwrites the bad value cleanly", () => {
-		// SPEC §9.6: discarded bad value does not prevent future saves from writing correct data
+		// ARCHITECTURE.md §Storage format: discarded bad value does not prevent future saves from writing correct data
 		globalThis.localStorage.setItem(
 			"web-chat-widget",
 			JSON.stringify({ v: 999, messages: [] }),
@@ -249,7 +249,7 @@ describe("createLocalStorageStore — schema validation on load", () => {
 	});
 
 	it("load() returns [] when messages is not an array", () => {
-		// SPEC §9.6: messages not array → discard, return []
+		// ARCHITECTURE.md §Storage format: messages not array → discard, return []
 		globalThis.localStorage.setItem(
 			"web-chat-widget",
 			JSON.stringify({ v: 1, messages: "oops" }),
@@ -270,7 +270,7 @@ describe("createLocalStorageStore — clear()", () => {
 	});
 
 	it("clear() causes load() to return [] and removes the key from localStorage", () => {
-		// SPEC §9.9: store.clear() purges the persistent layer
+		// ARCHITECTURE.md §clear() responsibility: store.clear() purges the persistent layer
 		// Assertion: after clear(), load() returns [] AND the underlying key is absent
 		const store = createLocalStorageStore({ key: "to-clear" });
 		store.save([msg("something")]);
@@ -282,7 +282,7 @@ describe("createLocalStorageStore — clear()", () => {
 });
 
 // ---------------------------------------------------------------------------
-// createLocalStorageStore — QuotaExceededError handling (SPEC §9.7)
+// createLocalStorageStore — QuotaExceededError handling (ARCHITECTURE.md §Quota handling)
 // ---------------------------------------------------------------------------
 
 describe("createLocalStorageStore — quota recovery", () => {
@@ -293,8 +293,8 @@ describe("createLocalStorageStore — quota recovery", () => {
 	});
 
 	it("drops the older half and retries when setItem throws QuotaExceededError once", () => {
-		// SPEC §9.7: on QuotaExceededError, drop older half and retry once.
-		// SPEC §9.8: factory probe also calls setItem once (call 1). Therefore the
+		// ARCHITECTURE.md §Quota handling: on QuotaExceededError, drop older half and retry once.
+		// ARCHITECTURE.md §Storage exception resilience: factory probe also calls setItem once (call 1). Therefore the
 		// initial save attempt is call 2; making call 2 throw forces the drop+retry path.
 		const fakeStorage = new FakeStorage({ throwOnSetItemCalls: [2] });
 
@@ -332,7 +332,7 @@ describe("createLocalStorageStore — quota recovery", () => {
 	});
 
 	it("falls back to memory and calls console.warn once when both setItem attempts throw", () => {
-		// SPEC §9.7: if retry also fails → memory fallback, console.warn once
+		// ARCHITECTURE.md §Quota handling: if retry also fails → memory fallback, console.warn once
 		const warnSpy = vi
 			.spyOn(console, "warn")
 			.mockImplementation(() => undefined);
@@ -377,7 +377,7 @@ describe("createLocalStorageStore — quota recovery", () => {
 	});
 
 	it("returns a memory-backed store when the sentinel probe throws (private browsing)", () => {
-		// SPEC §9.8: factory probes storage at creation time; if probe throws, return memory store
+		// ARCHITECTURE.md §Storage exception resilience: factory probes storage at creation time; if probe throws, return memory store
 		const alwaysThrowStorage = new FakeStorage({ alwaysThrow: true });
 
 		Object.defineProperty(globalThis, "localStorage", {
@@ -425,7 +425,7 @@ describe("createSessionStorageStore — basic behavior", () => {
 	});
 
 	it("writes to sessionStorage, not localStorage", () => {
-		// SPEC §9.3 / §5.4: createSessionStorageStore uses sessionStorage
+		// API.md §5 / §5.4: createSessionStorageStore uses sessionStorage
 		const store = createSessionStorageStore({ key: "session-key" });
 		store.save([msg("session message")]);
 
@@ -435,7 +435,7 @@ describe("createSessionStorageStore — basic behavior", () => {
 	});
 
 	it("all 5 messages round-trip via load() — no maxMessages truncation", () => {
-		// SPEC §9.3: createSessionStorageStore has no maxMessages option; all messages persist
+		// API.md §5: createSessionStorageStore has no maxMessages option; all messages persist
 		// Passing 5 messages must result in 5 messages coming back from load() — no truncation.
 		const store = createSessionStorageStore({ key: "session-no-trunc" });
 		const messages = [

@@ -1,4 +1,4 @@
-// Single source of truth for SPEC §7.3 ::part() names. Keeping them here
+// Single source of truth for ::part() names (see API.md §3.3). Keeping them here
 // prevents typos from becoming silent CSS-miss bugs since these tokens are
 // the package's public styling surface.
 export const PART = {
