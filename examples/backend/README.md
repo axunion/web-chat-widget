@@ -43,13 +43,25 @@ built-in adapter:
 | `POST /api/chat/sse` | `createOpenAISseAdapter` | OpenAI-compatible `text/event-stream` |
 | `POST /api/chat/json` | `createJsonAdapter` | `{ "reply": "..." }` |
 
+## Try it with the built demo
+
+The repo ships a demo page already wired to this server. From the repo root:
+
+```bash
+pnpm demo   # builds the widget and serves dist/ on http://localhost:4173
+```
+
+With this backend running, open `http://localhost:4173/backend-live.html` — the
+widget streams real completions through `POST /api/chat/sse`. If your `.env`
+sets a concrete `ALLOWED_ORIGIN`, it must be `http://localhost:4173`.
+
 ## Wire the widget to it
 
 ```ts
 import { ChatWidget } from "web-chat-widget";
 import { createOpenAISseAdapter } from "web-chat-widget/adapters";
 
-new ChatWidget({
+ChatWidget.mount({
   // Point at YOUR backend — not at api.openai.com.
   adapter: createOpenAISseAdapter({ url: "http://localhost:8787/api/chat/sse" }),
 });

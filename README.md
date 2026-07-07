@@ -34,7 +34,7 @@ A distributable package that embeds a floating AI chat UI into any web page. Zer
 import { ChatWidget } from "web-chat-widget";
 import { createOpenAISseAdapter } from "web-chat-widget/adapters";
 
-new ChatWidget({
+ChatWidget.mount({
   // Your backend endpoint — NOT api.openai.com.
   adapter: createOpenAISseAdapter({ url: "/api/chat/sse" }),
 });
@@ -72,10 +72,11 @@ pnpm check    # Biome lint / format check
 pnpm test     # Vitest unit tests
 ```
 
-Two demo pages exist:
+Three demo pages exist:
 
 - `index.html` (`pnpm dev`) — developer-facing playground with theme/locale/position controls, wired up via ESM imports.
 - `demo/sample-service.html` (`pnpm demo`, or `pnpm preview` after a manual `pnpm build`) — fictional SaaS landing page that loads the built IIFE bundle through a `<script>` tag, mirroring how a third-party site would embed the widget. Open `http://localhost:4173/sample-service.html` in your browser once preview is running.
+- `demo/backend-live.html` (`pnpm demo`, with [`examples/backend`](./examples/backend) running) — wires the real `createOpenAISseAdapter` to the reference proxy, exercising the full widget → backend → LLM path. Open `http://localhost:4173/backend-live.html`.
 
 A runnable reference backend lives in [`examples/backend`](./examples/backend)
 (Hono proxy, OpenAI-compatible). It has its own `package.json` and is excluded
@@ -85,4 +86,4 @@ Node version is pinned via Volta. See `package.json` for the exact scripts.
 
 ## License
 
-Not yet determined. Will be set before the first release.
+[MIT](https://opensource.org/licenses/MIT) (see the `license` field in `package.json`).

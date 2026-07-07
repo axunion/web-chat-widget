@@ -11,9 +11,10 @@ For Claude Code specifically, see [CLAUDE.md](./CLAUDE.md) — the body below is
 
 `web-chat-widget` is a zero-dependency, Web-standards-only floating AI chat UI that can be embedded in any web page. It supports both npm import and `<script>` tag embedding.
 
-**Status**: All features are implemented. Core layer, adapter layer, UI layer, declarative entry (`element.ts`) / IIFE entry (`iife.ts`), `ChatStore` (history persistence, see API.md §5), and `ChatWidget.clear()` / `retry()` are all shipped. The Vite library-mode build pipeline (ESM + IIFE + `.d.ts`) and two demo pages are working:
+**Status**: All features are implemented. Core layer, adapter layer, UI layer, declarative entry (`element.ts`) / IIFE entry (`iife.ts`), `ChatStore` (history persistence, see API.md §5), and `ChatWidget.clear()` / `retry()` are all shipped. The Vite library-mode build pipeline (ESM + IIFE + `.d.ts`) and three demo pages are working:
 - Developer playground: `index.html` + `src/main.ts` (run via `pnpm dev`)
 - Production-shaped sample: `demo/sample-service.html` (run via `pnpm demo`, loads the IIFE via `<script>`)
+- Live-backend sample: `demo/backend-live.html` (run via `pnpm demo` with `examples/backend` running; exercises the real SSE adapter)
 
 Design decisions and architectural invariants live in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Public API signatures live in [docs/API.md](./docs/API.md). These are the single sources of truth.
 
@@ -54,8 +55,8 @@ Implemented per ARCHITECTURE.md §Distribution & Entry Points.
 - `src/element.ts` — calls `defineChatWidget()`; side-effect entry.
 - `src/adapters/index.ts` — `createOpenAISseAdapter` / `createJsonAdapter`.
 - `src/iife.ts` — IIFE build entry. Attaches `ChatWidget` class to `window.ChatWidget` with `ChatWidget.adapters` / `ChatWidget.stores` namespaces.
-- `package.json` exports: `"."` / `"./element"` / `"./adapters"`. `"./react"` is added only when the React wrapper ships (never expose an unimplemented export path).
-- `vite.config.ts` uses `defineConfig(({ mode }) => ...)` to split ESM (default mode) from IIFE (`mode === "iife"`). Both dev and preview set `publicDir: false`. The demo is not bundled with the library; `scripts/copy-demo.mjs` copies `demo/*.html` to `dist/` so `vite preview` can serve them.
+- `package.json` exports: `"."` / `"./element"` / `"./adapters"`. `"./react"` is added only when the React wrapper ships (never expose an unimplemented export path). Publishing metadata: `sideEffects` lists only `dist/element.js` and the IIFE (everything else is tree-shakable), `unpkg` / `jsdelivr` point at `dist/chat-widget.iife.js`, and `prepack` runs the full build so packing works from a fresh checkout. See ARCHITECTURE.md §Distribution for the rationale.
+- `vite.config.ts` uses `defineConfig(({ mode }) => ...)` to split ESM (default mode) from IIFE (`mode === "iife"`). Both dev and preview set `publicDir: false`. The demo is not bundled with the library; `scripts/copy-demo.mjs` copies `demo/*.html` to `dist/` so `vite preview` can serve them, and the `files` negation `"!dist/*.html"` keeps them out of the npm tarball.
 - `demo/sample-service.html` loads the IIFE via `<script src="./chat-widget.iife.js?v=...">`. It is copied to `dist/` alongside the IIFE, so the relative path resolves correctly.
 - `tsconfig.build.json` sets `declaration: true` / `emitDeclarationOnly: true` / `rewriteRelativeImportExtensions: true`. Because TS 6.x does not apply `rewriteRelativeImportExtensions` to declaration output, `scripts/rewrite-dts-extensions.mjs` post-processes the `.d.ts` files.
 - `examples/backend/` — a reference proxy (Hono, its own `package.json`). Excluded from `files` in `package.json`. Shows the backend contract: request `{ messages, stream?, model? }` → OpenAI-compatible SSE or `{ reply }`. Does not affect the zero-deps guarantee.

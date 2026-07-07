@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>web-chat-widget — live backend demo</title>
+		<style>
+			body {
+				font-family: system-ui, sans-serif;
+				max-width: 42rem;
+				margin: 3rem auto;
+				padding: 0 1rem;
+				line-height: 1.6;
+			}
+			code {
+				background: #f0f0f2;
+				padding: 0.1em 0.35em;
+				border-radius: 4px;
+			}
+			pre {
+				background: #f0f0f2;
+				padding: 0.75rem 1rem;
+				border-radius: 8px;
+				overflow-x: auto;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Live backend demo</h1>
+		<p>
+			This page wires the widget to the reference proxy in
+			<code>examples/backend</code> through the real
+			<code>createOpenAISseAdapter</code> — no in-page mock. Start the backend
+			first:
+		</p>
+		<pre>cd examples/backend
+cp .env.example .env   # set OPENAI_API_KEY
+pnpm install
+pnpm start             # listens on http://localhost:8787</pre>
+		<p>
+			Then open the chat bubble in the corner. See
+			<code>examples/backend/README.md</code> for details. If your
+			<code>.env</code> pins <code>ALLOWED_ORIGIN</code>, it must be
+			<code>http://localhost:4173</code> (the <code>vite preview</code> origin).
+		</p>
+		<p>
+			To exercise the non-streaming path instead, swap the adapter for
+			<code>ChatWidget.adapters.createJsonAdapter({ url:
+			"http://localhost:8787/api/chat/json" })</code>.
+		</p>
+
+		<!-- Load the built IIFE bundle exactly as a third-party site would. -->
+		<script src="./chat-widget.iife.js?v=dev"></script>
+		<script>
+			ChatWidget.mount({
+				adapter: ChatWidget.adapters.createOpenAISseAdapter({
+					url: "http://localhost:8787/api/chat/sse",
+				}),
+				theme: "auto",
+				position: "bottom-right",
+			});
+		</script>
+	</body>
+</html>

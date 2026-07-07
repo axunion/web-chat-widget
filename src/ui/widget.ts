@@ -2,6 +2,7 @@ import { createJsonAdapter } from "../adapters/json.ts";
 import { createOpenAISseAdapter } from "../adapters/openai-sse.ts";
 import type { ChatAdapter } from "../adapters/types.ts";
 import { ChatEngine } from "../core/engine.ts";
+import type { ChatEventMap } from "../core/events.ts";
 import { createChatEvent } from "../core/events.ts";
 import type { LabelDictionary, Locale } from "../core/i18n.ts";
 import { resolveLabels } from "../core/i18n.ts";
@@ -183,6 +184,8 @@ export class ChatWidget extends HTMLElement {
 			signal,
 		});
 		this.wireInputHandlers(signal);
+		this.forwardEngineEvent("message", signal);
+		this.forwardEngineEvent("error", signal);
 		this.observable.subscribe((messages) => {
 			this.panel.logHandle.render(messages);
 			this.panel.setHistoryEmpty(messages.length === 0);
@@ -193,6 +196,22 @@ export class ChatWidget extends HTMLElement {
 		this.initialized = true;
 		if (this.hasAttribute("open")) this.open();
 		this.dispatchEvent(createChatEvent("ready", undefined));
+	}
+
+	// Re-dispatch engine events on the element so host pages can listen per
+	// API.md §2.3. A fresh event is created to keep bubbles/composed false.
+	private forwardEngineEvent<K extends "message" | "error">(
+		type: K,
+		signal: AbortSignal,
+	): void {
+		this.engine?.addEventListener(
+			type,
+			(event) => {
+				const { detail } = event as CustomEvent<ChatEventMap[K]>;
+				this.dispatchEvent(createChatEvent(type, detail));
+			},
+			{ signal },
+		);
 	}
 
 	async sendMessage(text: string): Promise<void> {

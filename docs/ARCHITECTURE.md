@@ -38,6 +38,14 @@ UMD is not provided; ESM + IIFE covers both use cases.
 - **Side-effect isolation:** Importing `"."` does not register the custom element. Call `customElements.define` explicitly via `"./element"`, or use the IIFE bundle which registers it automatically.
 - The IIFE attaches the class to `window.ChatWidget` and sets up `ChatWidget.adapters` / `ChatWidget.stores` namespaces so CDN users get a single `<script>` tag workflow.
 
+**Packaging decisions (npm publish):**
+
+- **Demo HTML never ships.** `scripts/copy-demo.mjs` copies `demo/*.html` into `dist/` so `vite preview` can serve them next to the built IIFE, but the npm tarball excludes them via a `files` negation (`"!dist/*.html"`). The demo pages are a verification surface, not a product artifact.
+- **`sideEffects` is declared as an array**, not `false`. `dist/element.js` (registers the custom element on import) and `dist/chat-widget.iife.js` (mutates `window`) are side-effectful; everything else — `dist/index.js`, `dist/adapters.js`, and the shared chunks — is pure and safe to tree-shake. A blanket `false` would let bundlers drop the element registration.
+- **CDN discovery via `unpkg` / `jsdelivr` fields**, both pointing at `dist/chat-widget.iife.js`. No `./iife` entry is added to the `exports` map: `exports` subpaths imply module semantics, and the IIFE build is `<script src>`-only. ESM consumers who want the registration side effect already have `"./element"`.
+- **`prepack` runs the full build.** `dist/` is git-ignored, so packing from a fresh checkout must produce it; `prepack` covers both `pnpm pack` and `pnpm publish`.
+- **Release steps that stay manual:** removing `"private": true` and setting the first real version are human decisions made at release time, never automated.
+
 ---
 
 ## Core Invariants
@@ -200,6 +208,10 @@ The adapter **must** forward `signal` to `fetch` and check `signal.aborted` betw
 ### Error-not-throw
 
 Network failures, HTTP errors, and JSON parse errors must all be yielded as `{ type: "error", error }`. Synchronous throws from inside `send` are forbidden. This keeps error handling at the engine call-site to a single code path.
+
+### Built-in mock adapter
+
+`createMockAdapter` ships as a third built-in adapter even though it talks to no backend. Rationale: the dev playground, the IIFE demo page, and any integrator evaluating the widget all need the same "stream a canned reply with realistic latency" behavior, and before it shipped each surface hand-rolled its own copy (which drifted). One public factory costs a few hundred bytes in the IIFE and removes the duplication. It is a demo/evaluation tool — automated tests keep using purpose-built scripted fakes (`tests/helpers/fake-adapters.ts`) because they need chunk-level control.
 
 ### Authentication
 
@@ -377,6 +389,8 @@ No runtime dependencies means no third-party code in the bundle and no transitiv
 - `sendMessage`, `clear`, `retry` operation methods.
 
 `ChatEngine` has no DOM dependency and no knowledge of how the UI is rendered.
+
+The DOM-free invariant covers `ChatEngine` and the events / messages / i18n modules. Two `core/` modules are browser-coupled by design: `core/markdown.ts` builds real DOM nodes (`document.createElement`), and the storage store factories probe `globalThis.localStorage` / `sessionStorage` (falling back to an in-memory store when unavailable). Relocating markdown rendering out of `core/` is future work.
 
 The UI (`src/ui/widget.ts`) receives a `ChatEngine` instance and renders it. UI subscribes to state changes through `ObservableEngine` (`src/ui/observable-engine.ts`), a thin wrapper that batches state-change callbacks via `requestAnimationFrame` and exposes `subscribe(cb): () => void`.
 

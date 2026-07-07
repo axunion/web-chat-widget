@@ -7,19 +7,26 @@
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "24.16.0",
+      "version": "24",
       "onFail": "warn"
     },
     "packageManager": {
       "name": "pnpm",
-      "version": "11.4.0",
+      "version": "^11",
       "onFail": "warn"
     }
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "unpkg": "./dist/chat-widget.iife.js",
+  "jsdelivr": "./dist/chat-widget.iife.js",
+  "sideEffects": [
+    "./dist/element.js",
+    "./dist/chat-widget.iife.js"
+  ],
   "files": [
-    "dist"
+    "dist",
+    "!dist/*.html"
   ],
   "exports": {
     ".": {
@@ -37,6 +44,7 @@
   },
   "scripts": {
     "prepare": "lefthook install",
+    "prepack": "pnpm build",
     "dev": "vite",
     "build": "vite build && vite build --mode iife && tsc -p tsconfig.build.json && node scripts/rewrite-dts-extensions.mjs && node scripts/copy-demo.mjs",
     "typecheck": "tsc",

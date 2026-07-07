@@ -34,7 +34,8 @@ import "web-chat-widget/element";
 ### 1.2 Via `<script>` tag
 
 ```html
-<script src="https://cdn.example.com/chat-widget.iife.js"></script>
+<!-- Pin a version in production: https://unpkg.com/web-chat-widget@x.y.z/dist/chat-widget.iife.js -->
+<script src="https://unpkg.com/web-chat-widget/dist/chat-widget.iife.js"></script>
 <script>
   ChatWidget.mount({
     adapter: ChatWidget.adapters.createOpenAISseAdapter({
@@ -47,7 +48,7 @@ import "web-chat-widget/element";
 The IIFE bundle:
 
 - Exposes the class at `window.ChatWidget`.
-- Attaches `createOpenAISseAdapter` / `createJsonAdapter` under `ChatWidget.adapters`.
+- Attaches `createOpenAISseAdapter` / `createJsonAdapter` / `createMockAdapter` under `ChatWidget.adapters`.
 - Attaches `createMemoryStore` / `createLocalStorageStore` / `createSessionStorageStore` under `ChatWidget.stores`.
 - Automatically registers the `<chat-widget>` custom element.
 
@@ -57,7 +58,7 @@ The IIFE bundle:
 | --- | --- | --- |
 | `web-chat-widget` (`"."`) | `ChatWidget` class, `ChatEngine`, and all types | None |
 | `web-chat-widget/element` | Calls `customElements.define("chat-widget", ChatWidget)` | Yes (define) |
-| `web-chat-widget/adapters` | `createOpenAISseAdapter`, `createJsonAdapter`, and related types | None |
+| `web-chat-widget/adapters` | `createOpenAISseAdapter`, `createJsonAdapter`, `createMockAdapter`, and related types | None |
 | IIFE (`chat-widget.iife.js`) | `window.ChatWidget` + `.adapters` + `.stores` + element define | Yes |
 
 Symbols exported from `"."`:
@@ -73,6 +74,8 @@ Symbols exported from `"."`:
 | Store | `ChatStore`, `CreateLocalStorageStoreOptions`, `CreateSessionStorageStoreOptions`, `createMemoryStore`, `createLocalStorageStore`, `createSessionStorageStore` |
 | Theme | `ThemeToken`, `THEME_TOKENS`, `renderThemeCss` |
 | Markdown | `markdownToNodes` |
+
+> **DOM requirement:** `markdownToNodes` builds real DOM nodes via `document.createElement`, so it needs a browser (or a DOM test environment such as happy-dom). Calling it in plain Node/SSR throws `document is not defined`. The storage store factories are safe everywhere: when `globalThis.localStorage` / `sessionStorage` is missing or unusable, they silently return an in-memory store instead (see §5.3).
 
 ---
 
@@ -298,7 +301,26 @@ Behavior:
 - Yields one `text-delta` + `done`.
 - Yields `error` if `extract` throws or returns a non-string.
 
-### 4.4 Writing a custom adapter
+### 4.4 `createMockAdapter`
+
+```ts
+function createMockAdapter(options?: MockAdapterOptions): ChatAdapter;
+
+interface MockAdapterOptions {
+  reply?: string;          // Markdown reply to stream. Default: a short canned reply.
+  initialDelayMs?: number; // latency before the first chunk. Default: 300.
+  chunkDelayMs?: number;   // delay between characters. Default: 12.
+}
+```
+
+Behavior:
+
+- Streams `reply` character by character as `text-delta` chunks, simulating LLM latency.
+- Checks `signal.aborted` between chunks and stops silently when aborted (no `done` after abort).
+- On completion, yields exactly one `done`. Never yields `error`.
+- Needs no backend. Intended for demos, playgrounds, and evaluating the widget before wiring a real endpoint — **not** for automated tests that need chunk-level scripting (write a scripted fake instead).
+
+### 4.5 Writing a custom adapter
 
 Any object implementing `ChatAdapter` works. Use this for WebSocket, mocks, multi-backend routing, etc.:
 
@@ -360,6 +382,7 @@ function createLocalStorageStore(opts?: {
 - Persists to `localStorage`.
 - Storage format: `{ "v": 1, "messages": [...] }`.
 - Drops oldest messages when `maxMessages` is exceeded.
+- When `globalThis.localStorage` is absent (plain Node/SSR) or fails a write probe (private mode, disabled storage), the factory returns an in-memory store instead of throwing. `createSessionStorageStore` behaves the same way.
 - On `QuotaExceededError`: drops the oldest half and retries once; on continued failure, silently falls back to memory.
 - If `localStorage` is unavailable (e.g. private browsing), returns a memory store at factory time.
 

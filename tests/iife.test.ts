@@ -27,4 +27,12 @@ describe("iife entry", () => {
 		);
 		expect(attached?.createJsonAdapter).toBe(adapters.createJsonAdapter);
 	});
+
+	it("attaches createMockAdapter under the adapters namespace", async () => {
+		await import("../src/iife.ts");
+		const attached = (ChatWidget as unknown as { adapters?: typeof adapters })
+			.adapters;
+		expect(typeof attached?.createMockAdapter).toBe("function");
+		expect(attached?.createMockAdapter).toBe(adapters.createMockAdapter);
+	});
 });

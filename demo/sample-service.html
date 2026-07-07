@@ -454,11 +454,9 @@
 		</footer>
 
 		<!-- Load the published IIFE bundle exactly as a third-party site would. -->
-		<script src="./chat-widget.iife.js?v=20260426"></script>
+		<script src="./chat-widget.iife.js?v=dev"></script>
 		<script>
 			(() => {
-				const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
 				const reply = [
 					"こんにちは！**TaskFlow アシスタント**です。",
 					"",
@@ -472,20 +470,11 @@
 					"詳しくは [ヘルプセンター](https://example.com) もご覧ください。",
 				].join("\n");
 
-				const adapter = {
-					async *send(_messages, signal) {
-						await sleep(300);
-						for (const ch of reply) {
-							if (signal.aborted) return;
-							await sleep(14);
-							yield { type: "text-delta", delta: ch };
-						}
-						yield { type: "done" };
-					},
-				};
-
 				window.ChatWidget.mount({
-					adapter,
+					adapter: window.ChatWidget.adapters.createMockAdapter({
+						reply,
+						chunkDelayMs: 14,
+					}),
 					theme: "auto",
 					locale: "ja",
 					position: "bottom-right",

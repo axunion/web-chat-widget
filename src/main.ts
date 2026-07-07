@@ -1,16 +1,12 @@
 import "./element.ts";
 import "./style.css";
-import type { ChatAdapter, ChatStore, ChatWidgetPersist } from "./index.ts";
+import { createMockAdapter } from "./adapters/index.ts";
+import type { ChatStore, ChatWidgetPersist } from "./index.ts";
 import {
 	ChatWidget,
 	createLocalStorageStore,
 	createSessionStorageStore,
 } from "./index.ts";
-
-const sleep = (ms: number): Promise<void> =>
-	new Promise((resolve) => {
-		setTimeout(resolve, ms);
-	});
 
 const CANNED = [
 	"こんにちは！**web-chat-widget** のデモ応答です。",
@@ -27,20 +23,6 @@ const CANNED = [
 	"",
 	"_italic_ と **bold** も使えます。",
 ].join("\n");
-
-function createDemoAdapter(): ChatAdapter {
-	return {
-		async *send(_messages, signal) {
-			await sleep(400);
-			for (const ch of CANNED) {
-				if (signal.aborted) return;
-				await sleep(12);
-				yield { type: "text-delta", delta: ch };
-			}
-			yield { type: "done" };
-		},
-	};
-}
 
 const PERSIST_PREF_KEY = "cw-playground-persist";
 const PERSIST_STORE_KEY = "cw-playground-history";
@@ -64,7 +46,7 @@ function buildStore(mode: ChatWidgetPersist): ChatStore | undefined {
 const persistMode = loadPersistPref();
 
 const widget = ChatWidget.mount({
-	adapter: createDemoAdapter(),
+	adapter: createMockAdapter({ reply: CANNED, initialDelayMs: 400 }),
 	theme: "auto",
 	locale: "ja",
 	position: "bottom-right",
