@@ -2,6 +2,8 @@
 
 Public API reference for `web-chat-widget`. For design decisions and architectural invariants, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
+> Entries marked **(planned)** are specified but not yet implemented. The implementation order and per-phase details live in [PLAN.md](./PLAN.md). Remove a marker in the same change that ships the feature.
+
 ---
 
 ## 1. Installation and Entry Points
@@ -98,6 +100,7 @@ interface ChatWidgetOptions {
   initialMessages?: Message[];
   messages?: Partial<LabelDictionary>;   // override specific UI labels
   store?: ChatStore;
+  maxInputLength?: number;               // (planned) maxlength applied to the input textarea
 }
 
 type ChatWidgetPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
@@ -121,6 +124,13 @@ type ChatWidgetApiMode  = "openai-sse" | "json";
 | `destroy` | `(): void` | Detaches listeners and destroys the engine. Re-attaching the element re-initializes it. |
 | `clear` | `(): void` | Clears conversation history. Aborts any in-flight request, empties in-memory history, calls `store.clear()`, and re-renders the UI to the empty state. Also triggered by the clear button in the panel header. |
 | `retry` | `(): Promise<void>` | Resends the last user message. The previous assistant response is dropped and replaced. |
+| `stop` | `(): void` | **(planned)** Aborts the in-flight response. Partial assistant content is kept and settled to `status: "done"`; an empty streaming placeholder is removed (the user message stays). Does **not** fire the `message` event. No-op when idle. |
+
+### 2.2.1 Properties
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `busy` | `boolean` (read-only) | **(planned)** `true` while a response is in flight — from send until the exchange settles (`done` / `error` / `stop()`). |
 
 ### 2.3 Events
 
@@ -131,8 +141,9 @@ type ChatWidgetApiMode  = "openai-sse" | "json";
 | `ready` | `undefined` | Initialization complete (DOM inserted and styles applied). |
 | `open` | `undefined` | Panel just opened. |
 | `close` | `undefined` | Panel just closed. |
-| `message` | `{ role: "user" \| "assistant"; content: string }` | An assistant response is confirmed on `done` chunk (once per message). `"system"` role is excluded. |
+| `message` | `{ role: "user" \| "assistant"; content: string }` | An assistant response is confirmed on `done` chunk (once per message), or **(planned)** a user message is appended by a send. `"system"` role is excluded. Stopped (partial) responses do not fire this event. |
 | `error` | `{ error: Error }` | The adapter yielded an `error` chunk, or an internal error occurred during send. |
+| `busy` | `{ busy: boolean }` | **(planned)** A response started (`true`) or settled (`false` — on `done` / `error` / `stop()`). Fires only on transitions. |
 
 The `message` event fires once per completed message, not on every `text-delta` chunk.
 
@@ -165,6 +176,7 @@ interface ChatEventMap {
   close: undefined;
   message: { role: Exclude<MessageRole, "system">; content: string };
   error: { error: Error };
+  busy: { busy: boolean }; // (planned)
 }
 ```
 
@@ -188,6 +200,9 @@ Importing `web-chat-widget/element` or loading the IIFE bundle calls `customElem
 | `api-mode` | `"openai-sse" \| "json"` | `"openai-sse"` | Which built-in adapter to use when `api-url` is set. |
 | `persist` | `"local" \| "session" \| "none"` | `"none"` | Constructs the corresponding built-in store factory. |
 | `persist-key` | string | `"web-chat-widget"` | Storage key passed to the store factory. |
+| `welcome-message` | string | — | **(planned)** Initial assistant greeting rendered when no stored history exists. Declarative sugar for `initialMessages` (stored history still wins). |
+| `api-timeout` | number (ms) | — | **(planned)** Passed to the built-in adapter as `timeoutMs`. Ignored when invalid or when an `adapter` option is supplied. |
+| `max-input-length` | number | — | **(planned)** `maxlength` applied to the input textarea. Does not limit programmatic `sendMessage()`. |
 
 ### 3.2 Dynamic attribute change rules
 
@@ -196,6 +211,7 @@ Importing `web-chat-widget/element` or loading the IIFE bundle calls `customElem
 | `open` / `position` / `locale` / `theme` | Yes |
 | `api-url` / `api-mode` | No — evaluated at mount time only |
 | `persist` / `persist-key` | No — evaluated at mount time only |
+| `welcome-message` / `api-timeout` / `max-input-length` | No — evaluated at mount time only **(planned)** |
 
 To change the adapter or store after mount, recreate the element via the JS API.
 
@@ -217,6 +233,9 @@ Use these to override individual DOM elements from outside the Shadow Root:
 | `input-area` | Container wrapping the textarea and send button |
 | `input` | The `<textarea>` element |
 | `send-button` | Send button |
+| `stop-button` | **(planned)** The same button while a response is in flight — its `part` switches from `send-button` to `stop-button` |
+| `badge` | **(planned)** Unread indicator on the FAB |
+| `copy-button` | **(planned)** Copy button on assistant code blocks |
 
 ```css
 chat-widget::part(fab) {
@@ -268,6 +287,7 @@ interface OpenAISseAdapterOptions {
   url: string;
   headers?: Record<string, string>;
   model?: string;           // included in the request body when set
+  timeoutMs?: number;       // (planned) inactivity timeout — see below
   fetchImpl?: typeof fetch; // for test injection
 }
 ```
@@ -280,6 +300,7 @@ Behavior:
 - Yields `done` on `data: [DONE]`.
 - Yields `error` on fetch failure, 4xx/5xx status, JSON parse failure, or missing `choices`.
 - Passes `signal` directly to `fetch`; `finally` block calls `cancel()` on the reader.
+- **(planned)** When `timeoutMs` is set, it bounds the wait for response headers **and** the inactivity gap between SSE reads (a steadily streaming response never times out). On timeout the adapter aborts its own fetch and yields an `error` chunk. Unset = no timeout (current behavior).
 
 ### 4.3 `createJsonAdapter`
 
@@ -290,6 +311,7 @@ interface JsonAdapterOptions {
   url: string;
   headers?: Record<string, string>;
   extract?: (json: unknown) => string; // default: returns json.reply (throws if not a string)
+  timeoutMs?: number;                  // (planned) total request timeout
   fetchImpl?: typeof fetch;
 }
 ```
@@ -300,6 +322,7 @@ Behavior:
 - `await response.json()`, then calls `extract(parsed)` to get the reply string.
 - Yields one `text-delta` + `done`.
 - Yields `error` if `extract` throws or returns a non-string.
+- **(planned)** When `timeoutMs` is set, it bounds the whole request (fetch + body read). On timeout the adapter aborts its own fetch and yields an `error` chunk. Unset = no timeout (current behavior).
 
 ### 4.4 `createMockAdapter`
 
@@ -354,7 +377,7 @@ Optional persistence layer for conversation history. Import the built-in factori
 ```ts
 interface ChatStore {
   load(): Message[];                          // called once synchronously in the engine constructor
-  save(messages: readonly Message[]): void;   // called on done / clear() / retry()
+  save(messages: readonly Message[]): void;   // called when state settles — see ARCHITECTURE.md §Save timing
   clear(): void;                              // purges the persistent layer
 }
 ```
@@ -384,7 +407,6 @@ function createLocalStorageStore(opts?: {
 - Drops oldest messages when `maxMessages` is exceeded.
 - When `globalThis.localStorage` is absent (plain Node/SSR) or fails a write probe (private mode, disabled storage), the factory returns an in-memory store instead of throwing. `createSessionStorageStore` behaves the same way.
 - On `QuotaExceededError`: drops the oldest half and retries once; on continued failure, silently falls back to memory.
-- If `localStorage` is unavailable (e.g. private browsing), returns a memory store at factory time.
 
 ### 5.4 `createSessionStorageStore`
 
@@ -428,7 +450,7 @@ Multiple `ChatWidget` instances using the same storage key will mix their histor
 
 ## 6. Locale and Labels
 
-### 6.1 `LabelDictionary` — all 15 keys
+### 6.1 `LabelDictionary` — all 19 keys (4 planned)
 
 ```ts
 interface LabelDictionary {
@@ -447,6 +469,10 @@ interface LabelDictionary {
   clearHistory: string;   // clear button aria-label
   clearConfirm: string;   // window.confirm prompt before clearing
   poweredBy: string;      // footer slot, unused by default (empty string)
+  stopButton: string;     // (planned) stop-generation button label — en "Stop" / ja "停止"
+  unreadBadge: string;    // (planned) sr-only text on the FAB unread badge — en "New message" / ja "新着メッセージ"
+  copyCode: string;       // (planned) code block copy button label — en "Copy" / ja "コピー"
+  copyCodeDone: string;   // (planned) copy button label after a successful copy — en "Copied" / ja "コピーしました"
 }
 ```
 
