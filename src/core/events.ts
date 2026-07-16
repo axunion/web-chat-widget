@@ -6,6 +6,7 @@ export interface ChatEventMap {
 	close: undefined;
 	message: { role: Exclude<MessageRole, "system">; content: string };
 	error: { error: Error };
+	busy: { busy: boolean };
 }
 
 export type ChatEventType = keyof ChatEventMap;

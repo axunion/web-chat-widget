@@ -96,6 +96,21 @@ describe("ChatWidget aria-live two-container pattern", () => {
 		expect(getLiveHost(widget)?.textContent?.trim()).toBe("");
 	});
 
+	it("strips Markdown syntax from the polite container text (PLAN.md P8)", async () => {
+		const widget = mountWidget({
+			adapter: scriptedAdapter([
+				{ type: "text-delta", delta: "**bold** and *em*" },
+				{ type: "done" },
+			]),
+		});
+
+		await widget.sendMessage("hi");
+
+		const liveText = getLiveHost(widget)?.textContent ?? "";
+		expect(liveText).toContain("bold and em");
+		expect(liveText).not.toContain("*");
+	});
+
 	it("does not place the user message text into the polite container", async () => {
 		const widget = mountWidget({
 			adapter: scriptedAdapter([

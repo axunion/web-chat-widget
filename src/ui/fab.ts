@@ -9,10 +9,13 @@ const CHAT_ICON_PATH =
 export interface FabHandle {
 	root: HTMLButtonElement;
 	setOpen(open: boolean): void;
+	setUnread(unread: boolean): void;
 	applyLabels(labels: LabelDictionary): void;
 }
 
 export function buildFab(labels: LabelDictionary): FabHandle {
+	const badgeText = el("span", { class: "sr-only" });
+	const badge = el("span", { class: "badge", part: PART.badge }, [badgeText]);
 	const root = el(
 		"button",
 		{
@@ -23,11 +26,12 @@ export function buildFab(labels: LabelDictionary): FabHandle {
 				"aria-expanded": "false",
 			},
 		},
-		[buildStrokeIcon(CHAT_ICON_PATH)],
+		[buildStrokeIcon(CHAT_ICON_PATH), badge],
 	);
 
 	function applyLabels(next: LabelDictionary): void {
 		root.setAttribute("aria-label", next.fabLabel);
+		badgeText.textContent = next.unreadBadge;
 	}
 
 	function setOpen(open: boolean): void {
@@ -36,6 +40,12 @@ export function buildFab(labels: LabelDictionary): FabHandle {
 		else root.removeAttribute("data-open");
 	}
 
+	function setUnread(unread: boolean): void {
+		if (unread) badge.setAttribute("data-visible", "");
+		else badge.removeAttribute("data-visible");
+	}
+
 	applyLabels(labels);
-	return { root, setOpen, applyLabels };
+	setUnread(false);
+	return { root, setOpen, setUnread, applyLabels };
 }

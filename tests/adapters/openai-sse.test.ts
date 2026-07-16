@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createOpenAISseAdapter } from "../../src/adapters/index.ts";
 import type { AdapterChunk, ChatAdapter } from "../../src/index.ts";
 
@@ -575,5 +575,204 @@ describe("createOpenAISseAdapter — ChatAdapter contract", () => {
 
 		// Must have Symbol.asyncIterator
 		expect(Symbol.asyncIterator in iterable).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// P4 — ARCHITECTURE.md §Timeouts; API.md §4.2 (timeoutMs) — inactivity timeout
+// ---------------------------------------------------------------------------
+
+/**
+ * A fetchImpl that never settles on its own — it only rejects once the
+ * signal handed to it (the adapter's *composed* signal) is aborted. Models a
+ * backend that never responds at all, so the only way out is the adapter's
+ * own timeout (or the caller's outer abort).
+ */
+function neverRespondingFetch(): typeof fetch {
+	return (_url, init) =>
+		new Promise((_resolve, reject) => {
+			init?.signal?.addEventListener("abort", () => {
+				reject(new DOMException("The operation was aborted", "AbortError"));
+			});
+		});
+}
+
+describe("createOpenAISseAdapter — timeoutMs (inactivity timeout)", () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("yields a single 'Timed out' error chunk when no response arrives within timeoutMs", async () => {
+		const adapter = createOpenAISseAdapter({
+			url: "https://example.com/api/chat",
+			fetchImpl: neverRespondingFetch(),
+			timeoutMs: 100,
+		});
+		const ctrl = new AbortController();
+
+		const chunksPromise = collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
+		await vi.advanceTimersByTimeAsync(100);
+		const chunks = await chunksPromise;
+
+		expect(chunks).toHaveLength(1);
+		expect(chunks[0].type).toBe("error");
+		const errChunk = chunks[0] as Extract<AdapterChunk, { type: "error" }>;
+		expect(errChunk.error.message).toContain("Timed out");
+	});
+
+	it("yields already-received deltas then a 'Timed out' error when the stream stalls mid-response", async () => {
+		let streamController: ReadableStreamDefaultController<Uint8Array> | null =
+			null;
+		const fetchImpl: typeof fetch = async (_url, init) => {
+			const encoder = new TextEncoder();
+			const stream = new ReadableStream<Uint8Array>({
+				start(c) {
+					streamController = c;
+					c.enqueue(
+						encoder.encode(
+							'data: {"choices":[{"delta":{"content":"first"}}]}\n\n',
+						),
+					);
+					// Do NOT close — simulate a stalled stream after the first chunk.
+				},
+			});
+			init?.signal?.addEventListener("abort", () => {
+				try {
+					streamController?.error(
+						new DOMException("The operation was aborted", "AbortError"),
+					);
+				} catch {}
+			});
+			return new Response(stream, {
+				status: 200,
+				headers: { "content-type": "text/event-stream" },
+			});
+		};
+
+		const adapter = createOpenAISseAdapter({
+			url: "https://example.com/api/chat",
+			fetchImpl,
+			timeoutMs: 50,
+		});
+		const ctrl = new AbortController();
+
+		const chunksPromise = collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
+		await vi.advanceTimersByTimeAsync(50);
+		const chunks = await chunksPromise;
+
+		const textDeltas = chunks.filter((c) => c.type === "text-delta");
+		expect(textDeltas).toHaveLength(1);
+		expect(textDeltas[0]).toEqual({ type: "text-delta", delta: "first" });
+
+		expect(chunks[chunks.length - 1].type).toBe("error");
+		const errChunk = chunks[chunks.length - 1] as Extract<
+			AdapterChunk,
+			{ type: "error" }
+		>;
+		expect(errChunk.error.message).toContain("Timed out");
+	});
+
+	it("completes with done when individual inter-chunk gaps stay below timeoutMs even though their sum exceeds it", async () => {
+		// Proves the inactivity timer re-arms on every read rather than bounding
+		// the total request duration.
+		let streamController: ReadableStreamDefaultController<Uint8Array> | null =
+			null;
+		const encoder = new TextEncoder();
+		const fetchImpl: typeof fetch = async () => {
+			const stream = new ReadableStream<Uint8Array>({
+				start(c) {
+					streamController = c;
+				},
+			});
+			return new Response(stream, {
+				status: 200,
+				headers: { "content-type": "text/event-stream" },
+			});
+		};
+
+		const adapter = createOpenAISseAdapter({
+			url: "https://example.com/api/chat",
+			fetchImpl,
+			timeoutMs: 50,
+		});
+		const ctrl = new AbortController();
+
+		const chunksPromise = collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
+
+		// Let fetch settle and the first reader.read() start pending.
+		await vi.advanceTimersByTimeAsync(0);
+		streamController?.enqueue(
+			encoder.encode('data: {"choices":[{"delta":{"content":"a"}}]}\n\n'),
+		);
+		await vi.advanceTimersByTimeAsync(20);
+		streamController?.enqueue(
+			encoder.encode('data: {"choices":[{"delta":{"content":"b"}}]}\n\n'),
+		);
+		await vi.advanceTimersByTimeAsync(20);
+		streamController?.enqueue(
+			encoder.encode('data: {"choices":[{"delta":{"content":"c"}}]}\n\n'),
+		);
+		await vi.advanceTimersByTimeAsync(20);
+		streamController?.enqueue(encoder.encode("data: [DONE]\n\n"));
+		streamController?.close();
+
+		const chunks = await chunksPromise;
+
+		const text = chunks
+			.filter((c) => c.type === "text-delta")
+			.map((c) => (c as Extract<AdapterChunk, { type: "text-delta" }>).delta)
+			.join("");
+		expect(text).toBe("abc");
+		expect(chunks[chunks.length - 1]).toEqual({ type: "done" });
+	});
+
+	it("ends silently on outer AbortSignal cancellation while waiting, with no 'Timed out' error", async () => {
+		const adapter = createOpenAISseAdapter({
+			url: "https://example.com/api/chat",
+			fetchImpl: neverRespondingFetch(),
+			timeoutMs: 5000,
+		});
+		const ctrl = new AbortController();
+
+		const chunksPromise = collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
+		ctrl.abort();
+		const chunks = await chunksPromise;
+
+		expect(chunks).toHaveLength(0);
+	});
+
+	it("behaves identically to a plain call when timeoutMs is left unset", async () => {
+		const body = sseBody(
+			'data: {"choices":[{"delta":{"content":"hi"}}]}',
+			"",
+			"data: [DONE]",
+			"",
+			"",
+		);
+		const adapter = createOpenAISseAdapter({
+			url: "https://example.com/api/chat",
+			fetchImpl: fakeFetch(body),
+		});
+		const ctrl = new AbortController();
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
+
+		expect(chunks).toEqual([
+			{ type: "text-delta", delta: "hi" },
+			{ type: "done" },
+		]);
 	});
 });

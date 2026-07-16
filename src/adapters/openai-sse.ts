@@ -1,5 +1,10 @@
 import type { Message, MessageRole } from "../core/messages.ts";
-import { toError, toWireMessages } from "./internal.ts";
+import {
+	classifyErrorChunk,
+	createTimeoutController,
+	toError,
+	toWireMessages,
+} from "./internal.ts";
 import { createSseParser } from "./sse-parse.ts";
 import type { AdapterChunk, ChatAdapter } from "./types.ts";
 
@@ -7,6 +12,7 @@ export interface OpenAISseAdapterOptions {
 	url: string;
 	headers?: Record<string, string>;
 	model?: string;
+	timeoutMs?: number;
 	fetchImpl?: typeof fetch;
 }
 
@@ -85,52 +91,72 @@ async function* streamOpenAI(
 	signal: AbortSignal,
 ): AsyncIterable<AdapterChunk> {
 	const body = buildBody(messages, options.model);
-	let response: Response;
+	const timeout = createTimeoutController(signal, options.timeoutMs);
 	try {
-		response = await fetchImpl(options.url, {
-			method: "POST",
-			headers: {
-				"content-type": "application/json",
-				...options.headers,
-			},
-			body: JSON.stringify(body),
-			signal,
-		});
-	} catch (err) {
-		yield { type: "error", error: toError(err) };
-		return;
-	}
+		timeout.arm();
+		let response: Response;
+		try {
+			response = await fetchImpl(options.url, {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					...options.headers,
+				},
+				body: JSON.stringify(body),
+				signal: timeout.signal,
+			});
+		} catch (err) {
+			yield* classifyErrorChunk(timeout, err);
+			return;
+		}
 
-	if (!response.ok) {
-		yield {
-			type: "error",
-			error: new Error(`HTTP ${response.status}`),
-		};
-		return;
-	}
+		if (!response.ok) {
+			yield {
+				type: "error",
+				error: new Error(`HTTP ${response.status}`),
+			};
+			return;
+		}
 
-	if (!response.body) {
-		yield { type: "error", error: new Error("Response has no body") };
-		return;
-	}
+		if (!response.body) {
+			yield { type: "error", error: new Error("Response has no body") };
+			return;
+		}
 
-	const reader = response.body.getReader();
-	const decoder = new TextDecoder();
-	const parser = createSseParser();
-	try {
-		while (true) {
-			if (signal.aborted) return;
-			let result: ReadableStreamReadResult<Uint8Array>;
-			try {
-				result = await reader.read();
-			} catch (err) {
+		const reader = response.body.getReader();
+		const decoder = new TextDecoder();
+		const parser = createSseParser();
+		try {
+			while (true) {
 				if (signal.aborted) return;
-				yield { type: "error", error: toError(err) };
-				return;
-			}
+				let result: ReadableStreamReadResult<Uint8Array>;
+				try {
+					result = await reader.read();
+				} catch (err) {
+					yield* classifyErrorChunk(timeout, err);
+					return;
+				}
 
-			if (result.done) {
-				for (const evt of parser.flush()) {
+				if (result.done) {
+					for (const evt of parser.flush()) {
+						if (evt.type === "done") {
+							yield { type: "done" };
+							return;
+						}
+						const chunk = extractDelta(evt.data);
+						if (!chunk) continue;
+						yield chunk;
+						if (chunk.type === "error") return;
+					}
+					yield { type: "done" };
+					return;
+				}
+
+				// Only re-arm for a genuine next read — arming right before a
+				// `done` return above would just be cleared again by disarm().
+				timeout.arm();
+				const text = decoder.decode(result.value, { stream: true });
+				for (const evt of parser.feed(text)) {
 					if (evt.type === "done") {
 						yield { type: "done" };
 						return;
@@ -140,25 +166,13 @@ async function* streamOpenAI(
 					yield chunk;
 					if (chunk.type === "error") return;
 				}
-				yield { type: "done" };
-				return;
 			}
-
-			const text = decoder.decode(result.value, { stream: true });
-			for (const evt of parser.feed(text)) {
-				if (evt.type === "done") {
-					yield { type: "done" };
-					return;
-				}
-				const chunk = extractDelta(evt.data);
-				if (!chunk) continue;
-				yield chunk;
-				if (chunk.type === "error") return;
-			}
+		} finally {
+			try {
+				await reader.cancel();
+			} catch {}
 		}
 	} finally {
-		try {
-			await reader.cancel();
-		} catch {}
+		timeout.disarm();
 	}
 }

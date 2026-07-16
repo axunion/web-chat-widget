@@ -22,7 +22,10 @@ describe("chat-widget message/error event forwarding (API.md §2.3)", () => {
 
 		await widget.sendMessage("hello");
 
-		expect(received).toEqual([{ role: "assistant", content: "hi" }]);
+		expect(received).toEqual([
+			{ role: "user", content: "hello" },
+			{ role: "assistant", content: "hi" },
+		]);
 	});
 
 	it("dispatches an error event on the element when the adapter reports an error", async () => {
@@ -59,6 +62,9 @@ describe("chat-widget message/error event forwarding (API.md §2.3)", () => {
 		document.body.appendChild(widget);
 		await widget.sendMessage("hello again");
 
-		expect(received).toEqual([{ role: "assistant", content: "hi" }]);
+		expect(received).toEqual([
+			{ role: "user", content: "hello again" },
+			{ role: "assistant", content: "hi" },
+		]);
 	});
 });

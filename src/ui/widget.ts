@@ -6,7 +6,7 @@ import type { ChatEventMap } from "../core/events.ts";
 import { createChatEvent } from "../core/events.ts";
 import type { LabelDictionary, Locale } from "../core/i18n.ts";
 import { resolveLabels } from "../core/i18n.ts";
-import type { Message } from "../core/messages.ts";
+import { createMessage, type Message } from "../core/messages.ts";
 import type { ChatStore } from "../core/store.ts";
 import {
 	createLocalStorageStore,
@@ -15,7 +15,7 @@ import {
 import { buildFab, type FabHandle } from "./fab.ts";
 import { ObservableEngine } from "./observable-engine.ts";
 import { buildPanel, type PanelHandle } from "./panel.ts";
-import { buildStyleElement } from "./styles.ts";
+import { buildStyleElement, TEXTAREA_MAX_HEIGHT_PX } from "./styles.ts";
 
 export type ChatWidgetPosition =
 	| "bottom-right"
@@ -35,6 +35,7 @@ export interface ChatWidgetOptions {
 	initialMessages?: Message[];
 	messages?: Partial<LabelDictionary>;
 	store?: ChatStore;
+	maxInputLength?: number;
 }
 
 const DEFAULT_POSITION: ChatWidgetPosition = "bottom-right";
@@ -132,15 +133,30 @@ export class ChatWidget extends HTMLElement {
 		this.isOpen = true;
 		this.panel.setOpen(true);
 		this.fab.setOpen(true);
+		this.fab.setUnread(false);
+		this.focusSafely(this.panel.inputHandle.textarea);
 		this.dispatchEvent(createChatEvent("open", undefined));
 	}
 
 	close(): void {
 		if (!this.isOpen) return;
+		const focusWasInsidePanel = this.isFocusInsidePanel();
 		this.isOpen = false;
 		this.panel.setOpen(false);
 		this.fab.setOpen(false);
+		if (focusWasInsidePanel) this.focusSafely(this.fab.root);
 		this.dispatchEvent(createChatEvent("close", undefined));
+	}
+
+	private focusSafely(el: HTMLElement): void {
+		try {
+			el.focus({ preventScroll: true });
+		} catch {}
+	}
+
+	private isFocusInsidePanel(): boolean {
+		const active = this.shadow.activeElement;
+		return active !== null && this.panel.root.contains(active);
 	}
 
 	toggle(): void {
@@ -171,6 +187,7 @@ export class ChatWidget extends HTMLElement {
 		this.applyLabels();
 		this.applyTheme(resolved.theme);
 		this.applyPosition(resolved.position);
+		this.panel.inputHandle.setMaxLength(resolved.maxInputLength);
 		this.engine = new ChatEngine({
 			adapter: resolved.adapter,
 			initialMessages: resolved.initialMessages,
@@ -184,8 +201,30 @@ export class ChatWidget extends HTMLElement {
 			signal,
 		});
 		this.wireInputHandlers(signal);
+		// Registered before forwardEngineEvent so the widget's own DOM (button
+		// part, unread badge) is already updated by the time a host page's
+		// forwarded-event listener observes the same transition.
+		this.engine.addEventListener(
+			"busy",
+			(event) => {
+				const { detail } = event as CustomEvent<ChatEventMap["busy"]>;
+				this.panel.inputHandle.setBusy(detail.busy);
+			},
+			{ signal },
+		);
+		this.engine.addEventListener(
+			"message",
+			(event) => {
+				const { detail } = event as CustomEvent<ChatEventMap["message"]>;
+				if (detail.role === "assistant" && !this.isOpen) {
+					this.fab.setUnread(true);
+				}
+			},
+			{ signal },
+		);
 		this.forwardEngineEvent("message", signal);
 		this.forwardEngineEvent("error", signal);
+		this.forwardEngineEvent("busy", signal);
 		this.observable.subscribe((messages) => {
 			this.panel.logHandle.render(messages);
 			this.panel.setHistoryEmpty(messages.length === 0);
@@ -200,7 +239,7 @@ export class ChatWidget extends HTMLElement {
 
 	// Re-dispatch engine events on the element so host pages can listen per
 	// API.md §2.3. A fresh event is created to keep bubbles/composed false.
-	private forwardEngineEvent<K extends "message" | "error">(
+	private forwardEngineEvent<K extends "message" | "error" | "busy">(
 		type: K,
 		signal: AbortSignal,
 	): void {
@@ -229,23 +268,53 @@ export class ChatWidget extends HTMLElement {
 		this.observable.clear();
 	}
 
+	stop(): void {
+		this.observable?.stop();
+	}
+
+	get busy(): boolean {
+		return this.observable?.busy ?? false;
+	}
+
 	private wireInputHandlers(signal: AbortSignal): void {
 		const { textarea, sendButton } = this.panel.inputHandle;
 		const submit = (): void => {
 			const value = textarea.value.trim();
 			if (!value) return;
 			textarea.value = "";
+			textarea.style.height = "auto";
 			void this.sendMessage(value);
 		};
-		sendButton.addEventListener("click", submit, { signal });
+		textarea.addEventListener(
+			"input",
+			() => {
+				textarea.style.height = "auto";
+				textarea.style.height = `${Math.min(textarea.scrollHeight, TEXTAREA_MAX_HEIGHT_PX)}px`;
+			},
+			{ signal },
+		);
+		sendButton.addEventListener(
+			"click",
+			() => {
+				if (this.busy) this.stop();
+				else submit();
+			},
+			{ signal },
+		);
 		textarea.addEventListener(
 			"keydown",
 			(event) => {
-				const key = event.key;
-				if (key === "Enter" && !event.shiftKey) {
+				if (event.key === "Enter" && !event.shiftKey) {
 					event.preventDefault();
-					submit();
-				} else if (key === "Escape") {
+					if (!this.busy) submit();
+				}
+			},
+			{ signal },
+		);
+		this.panel.root.addEventListener(
+			"keydown",
+			(event) => {
+				if (event.key === "Escape") {
 					event.preventDefault();
 					this.close();
 				}
@@ -276,6 +345,7 @@ export class ChatWidget extends HTMLElement {
 		locale: Locale | undefined;
 		initialMessages: Message[] | undefined;
 		store: ChatStore | null;
+		maxInputLength: number | undefined;
 	} {
 		const opts = this.options;
 		const adapter = opts?.adapter ?? this.buildAdapterFromAttributes();
@@ -297,9 +367,26 @@ export class ChatWidget extends HTMLElement {
 			position,
 			theme,
 			locale: locale ?? undefined,
-			initialMessages: opts?.initialMessages,
+			initialMessages: opts?.initialMessages ?? this.buildWelcomeMessage(),
 			store,
+			maxInputLength:
+				opts?.maxInputLength ??
+				this.parsePositiveIntAttribute("max-input-length"),
 		};
+	}
+
+	private buildWelcomeMessage(): Message[] | undefined {
+		const text = this.getAttribute("welcome-message");
+		if (!text) return undefined;
+		return [createMessage("assistant", text, { status: "done" })];
+	}
+
+	private parsePositiveIntAttribute(name: string): number | undefined {
+		const raw = this.getAttribute(name);
+		if (raw === null) return undefined;
+		const parsed = Number.parseInt(raw, 10);
+		if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+		return parsed;
 	}
 
 	private buildAdapterFromAttributes(): ChatAdapter | null {
@@ -308,8 +395,9 @@ export class ChatWidget extends HTMLElement {
 		const mode =
 			(this.getAttribute("api-mode") as ChatWidgetApiMode | null) ??
 			DEFAULT_API_MODE;
-		if (mode === "json") return createJsonAdapter({ url });
-		return createOpenAISseAdapter({ url });
+		const timeoutMs = this.parsePositiveIntAttribute("api-timeout");
+		if (mode === "json") return createJsonAdapter({ url, timeoutMs });
+		return createOpenAISseAdapter({ url, timeoutMs });
 	}
 
 	private buildStoreFromAttributes(): ChatStore | null {

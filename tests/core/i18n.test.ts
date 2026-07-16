@@ -4,7 +4,7 @@ import { resolveLabels } from "../../src/index.ts";
 
 // ARCHITECTURE.md §Internationalization — Internationalization
 // ARCHITECTURE.md §Internationalization — locale resolution: "ja" | "en", navigator.language fallback
-// ARCHITECTURE.md §Internationalization — LabelDictionary: 15 keys, JA/EN defaults, partial override
+// ARCHITECTURE.md §Internationalization — LabelDictionary: 19 keys, JA/EN defaults, partial override
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -26,6 +26,10 @@ const ALL_KEYS: ReadonlyArray<keyof LabelDictionary> = [
 	"clearHistory",
 	"clearConfirm",
 	"poweredBy",
+	"stopButton",
+	"unreadBadge",
+	"copyCode",
+	"copyCodeDone",
 ];
 
 // Returns true if the string contains at least one ASCII letter and no
@@ -43,7 +47,7 @@ function looksEnglish(value: string): boolean {
 
 describe("resolveLabels — explicit locale argument", () => {
 	it("returns a complete JA dictionary when called with locale 'ja'", () => {
-		// ARCHITECTURE.md §Internationalization: all 15 keys must be present
+		// ARCHITECTURE.md §Internationalization: all 19 keys must be present
 		const labels = resolveLabels("ja");
 
 		for (const key of ALL_KEYS) {
@@ -59,7 +63,7 @@ describe("resolveLabels — explicit locale argument", () => {
 	});
 
 	it("returns a complete EN dictionary when called with locale 'en'", () => {
-		// ARCHITECTURE.md §Internationalization: all 15 keys must be present
+		// ARCHITECTURE.md §Internationalization: all 19 keys must be present
 		const labels = resolveLabels("en");
 
 		for (const key of ALL_KEYS) {
@@ -80,10 +84,10 @@ describe("resolveLabels — explicit locale argument", () => {
 		expect(ja.fabLabel).not.toBe(en.fabLabel);
 	});
 
-	it("returned object has exactly 15 keys — no extras", () => {
-		// ARCHITECTURE.md §Internationalization: 15 keys defined, no implementation leakage
+	it("returned object has exactly 19 keys — no extras", () => {
+		// ARCHITECTURE.md §Internationalization: 19 keys defined, no implementation leakage
 		const labels = resolveLabels("en");
-		expect(Object.keys(labels).length).toBe(15);
+		expect(Object.keys(labels).length).toBe(19);
 	});
 });
 
@@ -109,6 +113,22 @@ describe("resolveLabels — JA dictionary values", () => {
 		const labels = resolveLabels("ja");
 		expect(labels.sendButton).toBe("送信");
 	});
+
+	it("JA stopButton is '停止' (PLAN.md P3)", () => {
+		const labels = resolveLabels("ja");
+		expect(labels.stopButton).toBe("停止");
+	});
+
+	it("JA unreadBadge is '新着メッセージ' (PLAN.md P7)", () => {
+		const labels = resolveLabels("ja");
+		expect(labels.unreadBadge).toBe("新着メッセージ");
+	});
+
+	it("JA copyCode/copyCodeDone are 'コピー'/'コピーしました' (PLAN.md P9)", () => {
+		const labels = resolveLabels("ja");
+		expect(labels.copyCode).toBe("コピー");
+		expect(labels.copyCodeDone).toBe("コピーしました");
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -128,6 +148,22 @@ describe("resolveLabels — EN dictionary values", () => {
 		const labels = resolveLabels("en");
 		expect(labels.sendButton.length).toBeGreaterThan(0);
 		expect(looksEnglish(labels.sendButton)).toBe(true);
+	});
+
+	it("EN stopButton is 'Stop' (PLAN.md P3)", () => {
+		const labels = resolveLabels("en");
+		expect(labels.stopButton).toBe("Stop");
+	});
+
+	it("EN unreadBadge is 'New message' (PLAN.md P7)", () => {
+		const labels = resolveLabels("en");
+		expect(labels.unreadBadge).toBe("New message");
+	});
+
+	it("EN copyCode/copyCodeDone are 'Copy'/'Copied' (PLAN.md P9)", () => {
+		const labels = resolveLabels("en");
+		expect(labels.copyCode).toBe("Copy");
+		expect(labels.copyCodeDone).toBe("Copied");
 	});
 });
 
@@ -162,11 +198,11 @@ describe("resolveLabels — override behavior", () => {
 	});
 
 	it("override keys do not add extra properties to the returned object", () => {
-		// ARCHITECTURE.md §Internationalization: result shape is always exactly LabelDictionary (15 keys)
+		// ARCHITECTURE.md §Internationalization: result shape is always exactly LabelDictionary (19 keys)
 		// TypeScript's Partial<LabelDictionary> prevents unknown keys at compile time.
-		// At runtime we assert the count stays at 15.
+		// At runtime we assert the count stays at 19.
 		const labels = resolveLabels("en", { sendButton: "Go" });
-		expect(Object.keys(labels).length).toBe(15);
+		expect(Object.keys(labels).length).toBe(19);
 	});
 
 	it("empty override object returns the same values as no override", () => {

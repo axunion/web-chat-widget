@@ -1,11 +1,17 @@
 import type { Message } from "../core/messages.ts";
-import { toError, toWireMessages } from "./internal.ts";
+import {
+	classifyErrorChunk,
+	createTimeoutController,
+	toError,
+	toWireMessages,
+} from "./internal.ts";
 import type { AdapterChunk, ChatAdapter } from "./types.ts";
 
 export interface JsonAdapterOptions {
 	url: string;
 	headers?: Record<string, string>;
 	extract?: (json: unknown) => string;
+	timeoutMs?: number;
 	fetchImpl?: typeof fetch;
 }
 
@@ -47,48 +53,53 @@ async function* streamJson(
 	signal: AbortSignal,
 ): AsyncIterable<AdapterChunk> {
 	const body = { messages: toWireMessages(messages) };
-
-	let response: Response;
+	const timeout = createTimeoutController(signal, options.timeoutMs);
 	try {
-		response = await fetchImpl(options.url, {
-			method: "POST",
-			headers: {
-				"content-type": "application/json",
-				...options.headers,
-			},
-			body: JSON.stringify(body),
-			signal,
-		});
-	} catch (err) {
-		yield { type: "error", error: toError(err) };
-		return;
-	}
-
-	if (!response.ok) {
-		yield { type: "error", error: new Error(`HTTP ${response.status}`) };
-		return;
-	}
-
-	let parsed: unknown;
-	try {
-		parsed = await response.json();
-	} catch (err) {
-		yield { type: "error", error: toError(err) };
-		return;
-	}
-
-	let delta: string;
-	try {
-		const result = extract(parsed);
-		if (typeof result !== "string") {
-			throw new Error("extract did not return a string");
+		timeout.arm();
+		let response: Response;
+		try {
+			response = await fetchImpl(options.url, {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					...options.headers,
+				},
+				body: JSON.stringify(body),
+				signal: timeout.signal,
+			});
+		} catch (err) {
+			yield* classifyErrorChunk(timeout, err);
+			return;
 		}
-		delta = result;
-	} catch (err) {
-		yield { type: "error", error: toError(err) };
-		return;
-	}
 
-	yield { type: "text-delta", delta };
-	yield { type: "done" };
+		if (!response.ok) {
+			yield { type: "error", error: new Error(`HTTP ${response.status}`) };
+			return;
+		}
+
+		let parsed: unknown;
+		try {
+			parsed = await response.json();
+		} catch (err) {
+			yield* classifyErrorChunk(timeout, err);
+			return;
+		}
+
+		let delta: string;
+		try {
+			const result = extract(parsed);
+			if (typeof result !== "string") {
+				throw new Error("extract did not return a string");
+			}
+			delta = result;
+		} catch (err) {
+			yield { type: "error", error: toError(err) };
+			return;
+		}
+
+		yield { type: "text-delta", delta };
+		yield { type: "done" };
+	} finally {
+		timeout.disarm();
+	}
 }

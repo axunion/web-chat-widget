@@ -20,6 +20,10 @@ export class ObservableEngine {
 		return this.engine.getMessages();
 	}
 
+	get busy(): boolean {
+		return this.engine.busy;
+	}
+
 	subscribe(listener: UpdateListener): () => void {
 		this.listeners.add(listener);
 		return () => {
@@ -49,6 +53,11 @@ export class ObservableEngine {
 
 	clear(): void {
 		this.engine.clear();
+		this.notify();
+	}
+
+	stop(): void {
+		this.engine.stop();
 		this.notify();
 	}
 

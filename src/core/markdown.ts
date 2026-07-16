@@ -22,6 +22,37 @@ export function markdownToNodes(source: string): Node[] {
 	return parseBlocks(source).map(renderBlock);
 }
 
+// Internal — used to build the aria-live announcement copy (see ARCHITECTURE.md
+// §aria-live pattern). Not exported from "." — it stays a UI-layer concern.
+export function markdownToPlainText(source: string): string {
+	return parseBlocks(source).map(blockToPlainText).join("\n\n");
+}
+
+function blockToPlainText(block: Block): string {
+	if (block.type === "code") return block.text;
+	if (block.type === "ul") {
+		return block.items.map((item) => `- ${inlineToPlainText(item)}`).join("\n");
+	}
+	if (block.type === "ol") {
+		return block.items
+			.map((item, i) => `${i + 1}. ${inlineToPlainText(item)}`)
+			.join("\n");
+	}
+	return block.text
+		.split("\n")
+		.map((line) => inlineToPlainText(line.replace(/ {2}$/, "")))
+		.join("\n");
+}
+
+function inlineToPlainText(text: string): string {
+	return tokenizeInline(text).map(inlineTokenToPlainText).join("");
+}
+
+function inlineTokenToPlainText(token: InlineToken): string {
+	if (token.type === "link") return `${token.text} (${token.href})`;
+	return token.value;
+}
+
 function parseBlocks(source: string): Block[] {
 	const lines = source.split("\n");
 	const blocks: Block[] = [];

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createJsonAdapter } from "../../src/adapters/index.ts";
 import type { AdapterChunk, ChatAdapter } from "../../src/index.ts";
 
@@ -418,5 +418,87 @@ describe("createJsonAdapter — ChatAdapter contract", () => {
 
 		// Must be async-iterable
 		expect(Symbol.asyncIterator in iterable).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// P4 — ARCHITECTURE.md §Timeouts; API.md §4.3 (timeoutMs) — total request timeout
+// ---------------------------------------------------------------------------
+
+/**
+ * A fetchImpl that never settles on its own — it only rejects once the
+ * signal handed to it (the adapter's *composed* signal) is aborted. Models a
+ * backend that never responds at all, so the only way out is the adapter's
+ * own timeout (or the caller's outer abort).
+ */
+function neverRespondingFetch(): typeof fetch {
+	return (_url, init) =>
+		new Promise((_resolve, reject) => {
+			init?.signal?.addEventListener("abort", () => {
+				reject(new DOMException("The operation was aborted", "AbortError"));
+			});
+		});
+}
+
+describe("createJsonAdapter — timeoutMs (total request timeout)", () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("yields a single 'Timed out' error chunk when the response never arrives within timeoutMs", async () => {
+		const adapter = createJsonAdapter({
+			url: "https://example.com/api/chat",
+			fetchImpl: neverRespondingFetch(),
+			timeoutMs: 100,
+		});
+		const ctrl = new AbortController();
+
+		const chunksPromise = collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
+		await vi.advanceTimersByTimeAsync(100);
+		const chunks = await chunksPromise;
+
+		expect(chunks).toHaveLength(1);
+		expect(chunks[0].type).toBe("error");
+		const errChunk = chunks[0] as Extract<AdapterChunk, { type: "error" }>;
+		expect(errChunk.error.message).toContain("Timed out");
+	});
+
+	it("ends silently on outer AbortSignal cancellation while waiting, with no 'Timed out' error", async () => {
+		const adapter = createJsonAdapter({
+			url: "https://example.com/api/chat",
+			fetchImpl: neverRespondingFetch(),
+			timeoutMs: 5000,
+		});
+		const ctrl = new AbortController();
+
+		const chunksPromise = collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
+		ctrl.abort();
+		const chunks = await chunksPromise;
+
+		expect(chunks).toHaveLength(0);
+	});
+
+	it("behaves identically to a plain call when timeoutMs is left unset", async () => {
+		const adapter = createJsonAdapter({
+			url: "https://example.com/api/chat",
+			fetchImpl: fakeFetch({ reply: "hello" }),
+		});
+		const ctrl = new AbortController();
+		const chunks = await collectChunks(
+			adapter.send(minimalMessages, ctrl.signal),
+		);
+
+		expect(chunks).toEqual([
+			{ type: "text-delta", delta: "hello" },
+			{ type: "done" },
+		]);
 	});
 });

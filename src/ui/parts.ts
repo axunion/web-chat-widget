@@ -16,6 +16,9 @@ export const PART = {
 	inputArea: "input-area",
 	input: "input",
 	sendButton: "send-button",
+	stopButton: "stop-button",
+	badge: "badge",
+	copyButton: "copy-button",
 } as const;
 
 export type PartName = (typeof PART)[keyof typeof PART];

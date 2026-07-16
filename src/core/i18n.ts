@@ -16,6 +16,10 @@ export interface LabelDictionary {
 	clearHistory: string;
 	clearConfirm: string;
 	poweredBy: string;
+	stopButton: string;
+	unreadBadge: string;
+	copyCode: string;
+	copyCodeDone: string;
 }
 
 const JA: LabelDictionary = {
@@ -34,6 +38,10 @@ const JA: LabelDictionary = {
 	clearHistory: "履歴をクリア",
 	clearConfirm: "履歴を削除しますか？",
 	poweredBy: "",
+	stopButton: "停止",
+	unreadBadge: "新着メッセージ",
+	copyCode: "コピー",
+	copyCodeDone: "コピーしました",
 };
 
 const EN: LabelDictionary = {
@@ -52,6 +60,10 @@ const EN: LabelDictionary = {
 	clearHistory: "Clear history",
 	clearConfirm: "Clear the conversation?",
 	poweredBy: "",
+	stopButton: "Stop",
+	unreadBadge: "New message",
+	copyCode: "Copy",
+	copyCodeDone: "Copied",
 };
 
 function detectLocale(): Locale {

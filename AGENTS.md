@@ -11,12 +11,12 @@ For Claude Code specifically, see [CLAUDE.md](./CLAUDE.md) — the body below is
 
 `web-chat-widget` is a zero-dependency, Web-standards-only floating AI chat UI that can be embedded in any web page. It supports both npm import and `<script>` tag embedding.
 
-**Status**: All features are implemented. Core layer, adapter layer, UI layer, declarative entry (`element.ts`) / IIFE entry (`iife.ts`), `ChatStore` (history persistence, see API.md §5), and `ChatWidget.clear()` / `retry()` are all shipped. The Vite library-mode build pipeline (ESM + IIFE + `.d.ts`) and three demo pages are working:
+**Status**: All features are implemented, including feature wave 2 (engine busy/stop state, save-on-error, adapter timeouts, declarative config, focus management, unread badge, code-block copy button, textarea auto-grow, CI). Core layer, adapter layer, UI layer, declarative entry (`element.ts`) / IIFE entry (`iife.ts`), `ChatStore` (history persistence, see API.md §5), and `ChatWidget.clear()` / `retry()` are all shipped. The Vite library-mode build pipeline (ESM + IIFE + `.d.ts`) and three demo pages are working:
 - Developer playground: `index.html` + `src/main.ts` (run via `pnpm dev`)
 - Production-shaped sample: `demo/sample-service.html` (run via `pnpm demo`, loads the IIFE via `<script>`)
 - Live-backend sample: `demo/backend-live.html` (run via `pnpm demo` with `examples/backend` running; exercises the real SSE adapter)
 
-Feature wave 2 (engine busy/stop state, adapter timeouts, declarative config, focus management, unread badge, CI) is **specified but not yet implemented**: the specs carry **(planned)** markers in the docs, and the phase-by-phase execution plan is [docs/PLAN.md](./docs/PLAN.md).
+No `(planned)` markers remain in ARCHITECTURE.md / API.md. `CHANGELOG.md` has not been added yet — that is deliberately deferred until the first release is tagged (see README's Documentation section).
 
 Design decisions and architectural invariants live in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Public API signatures live in [docs/API.md](./docs/API.md). These are the single sources of truth.
 
@@ -66,8 +66,7 @@ Implemented per ARCHITECTURE.md §Distribution & Entry Points.
 ## Documentation
 
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — authoritative design decisions and architectural invariants. Covers core invariants, adapter/store contracts, security policy, accessibility, and future work. English.
-- [docs/API.md](./docs/API.md) — public API reference: type signatures, attribute/event tables, factory options, `LabelDictionary` (19 keys — 4 planned), `::part()` list. English.
-- [docs/PLAN.md](./docs/PLAN.md) — sequenced implementation plan for the **(planned)** items in the two docs above. One phase = one TDD cycle; markers are removed as each phase ships. English.
+- [docs/API.md](./docs/API.md) — public API reference: type signatures, attribute/event tables, factory options, `LabelDictionary` (19 keys), `::part()` list. English.
 - [README.md](./README.md) — external-facing Quick Start and examples. English.
 
 Always update ARCHITECTURE.md and/or API.md before implementing. Never let the implementation drift ahead of these docs. New API signatures must be reflected in API.md; design decisions and invariants go in ARCHITECTURE.md.

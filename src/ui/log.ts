@@ -1,5 +1,5 @@
 import type { LabelDictionary } from "../core/i18n.ts";
-import { markdownToNodes } from "../core/markdown.ts";
+import { markdownToNodes, markdownToPlainText } from "../core/markdown.ts";
 import type { Message } from "../core/messages.ts";
 import { el } from "./dom.ts";
 import { PART } from "./parts.ts";
@@ -51,11 +51,13 @@ export function buildLog(
 	let currentLabels = labels;
 	const cache = new Map<string, CachedEntry>();
 	const errorBlocks = new WeakMap<HTMLDivElement, ErrorBlockRefs>();
+	const copyButtons = new Set<(labels: LabelDictionary) => void>();
 
 	function applyLabels(next: LabelDictionary): void {
 		currentLabels = next;
 		root.setAttribute("aria-label", next.panelTitle);
 		refreshErrorBlocks();
+		for (const refresh of copyButtons) refresh(next);
 	}
 	applyLabels(labels);
 
@@ -122,7 +124,7 @@ export function buildLog(
 			if (message.role !== "assistant" || message.status !== "done") continue;
 			entry.announced = true;
 			const block = document.createElement("div");
-			block.textContent = message.content;
+			block.textContent = markdownToPlainText(message.content);
 			liveHost.appendChild(block);
 		}
 	}
@@ -148,6 +150,56 @@ export function buildLog(
 		node.replaceChildren(...markdownToNodes(message.content));
 		if (message.role === "assistant" && message.status === "error") {
 			node.appendChild(buildErrorBlock());
+		}
+		if (message.role === "assistant" && message.status === "done") {
+			attachCopyButtons(node);
+		}
+	}
+
+	// Copy buttons only matter once a message has settled, so this is
+	// skipped for in-progress streaming updates (see the "done" guard above).
+	// Omitted entirely without a Clipboard API.
+	function attachCopyButtons(node: HTMLDivElement): void {
+		if (!navigator.clipboard?.writeText) return;
+		for (const pre of Array.from(node.querySelectorAll("pre"))) {
+			const codeEl = pre.querySelector("code") ?? pre;
+			const button = el("button", {
+				class: "copy-button",
+				part: PART.copyButton,
+				attrs: { type: "button" },
+			});
+			const setLabel = (text: string): void => {
+				button.textContent = text;
+				button.setAttribute("aria-label", text);
+			};
+			let showingCopied = false;
+			setLabel(currentLabels.copyCode);
+			const refresh = (next: LabelDictionary): void => {
+				if (!button.isConnected) {
+					copyButtons.delete(refresh);
+					return;
+				}
+				setLabel(showingCopied ? next.copyCodeDone : next.copyCode);
+			};
+			copyButtons.add(refresh);
+			let revertHandle: ReturnType<typeof setTimeout> | null = null;
+			button.addEventListener("click", async () => {
+				try {
+					await navigator.clipboard.writeText(codeEl.textContent ?? "");
+				} catch (err) {
+					console.warn("[web-chat-widget] clipboard write failed", err);
+					return;
+				}
+				if (revertHandle !== null) clearTimeout(revertHandle);
+				showingCopied = true;
+				setLabel(currentLabels.copyCodeDone);
+				revertHandle = setTimeout(() => {
+					showingCopied = false;
+					setLabel(currentLabels.copyCode);
+					revertHandle = null;
+				}, 2000);
+			});
+			pre.appendChild(button);
 		}
 	}
 

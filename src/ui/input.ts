@@ -7,6 +7,8 @@ export interface InputHandle {
 	textarea: HTMLTextAreaElement;
 	sendButton: HTMLButtonElement;
 	applyLabels(labels: LabelDictionary): void;
+	setBusy(busy: boolean): void;
+	setMaxLength(maxLength: number | undefined): void;
 }
 
 export function buildInput(labels: LabelDictionary): InputHandle {
@@ -25,13 +27,37 @@ export function buildInput(labels: LabelDictionary): InputHandle {
 		sendButton,
 	]);
 
+	let currentLabels = labels;
+	let busyState = false;
+
 	function applyLabels(next: LabelDictionary): void {
+		currentLabels = next;
 		textarea.setAttribute("placeholder", next.placeholder);
 		textarea.setAttribute("aria-label", next.placeholder);
-		sendButton.setAttribute("aria-label", next.sendButton);
-		sendButton.textContent = next.sendButton;
+		applyButtonLabel();
+	}
+
+	function applyButtonLabel(): void {
+		const label = busyState
+			? currentLabels.stopButton
+			: currentLabels.sendButton;
+		sendButton.setAttribute("aria-label", label);
+		sendButton.textContent = label;
+	}
+
+	function setBusy(busy: boolean): void {
+		busyState = busy;
+		sendButton.setAttribute("part", busy ? PART.stopButton : PART.sendButton);
+		if (busy) sendButton.setAttribute("data-busy", "");
+		else sendButton.removeAttribute("data-busy");
+		applyButtonLabel();
+	}
+
+	function setMaxLength(maxLength: number | undefined): void {
+		if (maxLength === undefined) textarea.removeAttribute("maxlength");
+		else textarea.setAttribute("maxlength", String(maxLength));
 	}
 
 	applyLabels(labels);
-	return { root, textarea, sendButton, applyLabels };
+	return { root, textarea, sendButton, applyLabels, setBusy, setMaxLength };
 }

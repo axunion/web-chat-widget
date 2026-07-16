@@ -212,13 +212,16 @@ describe("ChatEngine.sendMessage — streaming status transitions", () => {
 		const engine = new ChatEngine({ adapter });
 
 		let messageEventCount = 0;
-		engine.addEventListener("message", () => {
-			messageEventCount += 1;
+		engine.addEventListener("message", (e) => {
+			const detail = (e as CustomEvent<{ role: string }>).detail;
+			if (detail.role === "assistant") messageEventCount += 1;
 		});
 
 		await engine.sendMessage("test");
 
-		// The message event fires once at done — confirms streaming->done transition
+		// The assistant message event fires once at done — confirms streaming->done
+		// transition. (A separate "user" message event also fires per PLAN.md P2,
+		// but that is not this test's concern.)
 		expect(messageEventCount).toBe(1);
 
 		// Final state must be done
@@ -261,6 +264,7 @@ describe("ChatEngine — message event fires once per completion", () => {
 		const received: Array<{ role: string; content: string }> = [];
 		engine.addEventListener("message", (rawEvt) => {
 			const evt = rawEvt as CustomEvent<{ role: string; content: string }>;
+			if (evt.detail.role !== "assistant") return;
 			received.push({ role: evt.detail.role, content: evt.detail.content });
 		});
 
@@ -300,8 +304,9 @@ describe("ChatEngine — message event does not fire mid-stream", () => {
 		};
 
 		const engine = new ChatEngine({ adapter });
-		engine.addEventListener("message", () => {
-			messageEventCount += 1;
+		engine.addEventListener("message", (e) => {
+			const detail = (e as CustomEvent<{ role: string }>).detail;
+			if (detail.role === "assistant") messageEventCount += 1;
 		});
 
 		await engine.sendMessage("test");
@@ -313,6 +318,33 @@ describe("ChatEngine — message event does not fire mid-stream", () => {
 		}
 		// After completion the event fires once
 		expect(messageEventCount).toBe(1);
+	});
+});
+
+describe("ChatEngine — adapter ends without a terminal chunk", () => {
+	it("settles the message to done and still fires the message event when content was produced", async () => {
+		// A non-conforming adapter (contract violation per ARCHITECTURE.md's
+		// Adapter Contract: must always yield `done` or `error`), simulating a
+		// stream that just stops.
+		const adapter: ChatAdapter = {
+			async *send() {
+				await Promise.resolve();
+				yield { type: "text-delta", delta: "partial" };
+			},
+		};
+		const engine = new ChatEngine({ adapter });
+
+		let assistantEvent: { role: string; content: string } | null = null;
+		engine.addEventListener("message", (rawEvt) => {
+			const evt = rawEvt as CustomEvent<{ role: string; content: string }>;
+			if (evt.detail.role === "assistant") assistantEvent = evt.detail;
+		});
+
+		await engine.sendMessage("hi");
+
+		const assistant = engine.getMessages().find((m) => m.role === "assistant");
+		expect(assistant?.status).toBe("done");
+		expect(assistantEvent).toEqual({ role: "assistant", content: "partial" });
 	});
 });
 
@@ -335,8 +367,9 @@ describe("ChatEngine — two sequential sends fire message event twice", () => {
 
 		const engine = new ChatEngine({ adapter: adapter2 });
 		let count = 0;
-		engine.addEventListener("message", () => {
-			count += 1;
+		engine.addEventListener("message", (e) => {
+			const detail = (e as CustomEvent<{ role: string }>).detail;
+			if (detail.role === "assistant") count += 1;
 		});
 
 		await engine.sendMessage("first");
@@ -815,5 +848,91 @@ describe("ChatEngine + store — store.save fires after retry() splice, before s
 
 		// After retry resolves, a third save fires for the retry's done chunk
 		expect(store.saveCalls).toHaveLength(3);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// PLAN.md P2 — Save-on-error + message event for user role
+// ---------------------------------------------------------------------------
+
+describe("ChatEngine — store.save fires on an error chunk", () => {
+	it("persists the user message and the status='error' assistant message", async () => {
+		const store = fakeStore();
+		const failure = new Error("boom");
+		const engine = new ChatEngine({
+			adapter: scriptedAdapter([{ type: "error", error: failure }]),
+			store,
+		});
+
+		await engine.sendMessage("hi");
+
+		expect(store.saveCalls.length).toBeGreaterThanOrEqual(1);
+		const saved = store.saveCalls[store.saveCalls.length - 1];
+		const user = saved.find((m) => m.role === "user");
+		const assistant = saved.find((m) => m.role === "assistant");
+		expect(user?.content).toBe("hi");
+		expect(assistant?.status).toBe("error");
+	});
+});
+
+describe("ChatEngine — store.save fires when the adapter throws", () => {
+	it("persists the status='error' assistant message on a thrown error", async () => {
+		const store = fakeStore();
+		const engine = new ChatEngine({
+			adapter: throwingAdapter(new Error("network down")),
+			store,
+		});
+
+		await engine.sendMessage("hi");
+
+		const saved = store.saveCalls[store.saveCalls.length - 1];
+		const assistant = saved.find((m) => m.role === "assistant");
+		expect(assistant?.status).toBe("error");
+	});
+});
+
+describe("ChatEngine.sendMessage — dispatches a message event for the user role", () => {
+	it("fires message {role:'user', content} before the assistant message event", async () => {
+		const adapter = scriptedAdapter([
+			{ type: "text-delta", delta: "hi" },
+			{ type: "done" },
+		]);
+		const engine = new ChatEngine({ adapter });
+		const received: Array<{ role: string; content: string }> = [];
+		engine.addEventListener("message", (e) => {
+			received.push(
+				(e as CustomEvent<{ role: string; content: string }>).detail,
+			);
+		});
+
+		await engine.sendMessage("hello");
+
+		expect(received).toEqual([
+			{ role: "user", content: "hello" },
+			{ role: "assistant", content: "hi" },
+		]);
+	});
+});
+
+describe("ChatEngine.retry — does not re-dispatch a user message event", () => {
+	it("fires only the assistant message event when retrying", async () => {
+		const adapter = scriptedAdapter([
+			{ type: "text-delta", delta: "first" },
+			{ type: "done" },
+		]);
+		const engine = new ChatEngine({ adapter });
+		await engine.sendMessage("hello");
+
+		const received: Array<{ role: string; content: string }> = [];
+		engine.addEventListener("message", (e) => {
+			received.push(
+				(e as CustomEvent<{ role: string; content: string }>).detail,
+			);
+		});
+
+		await engine.retry();
+
+		expect(received.every((detail) => detail.role === "assistant")).toBe(true);
+		expect(received.some((detail) => detail.role === "user")).toBe(false);
 	});
 });

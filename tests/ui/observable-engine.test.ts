@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Message } from "../../src/index.ts";
+import type { ChatAdapter, Message } from "../../src/index.ts";
 import { ChatEngine } from "../../src/index.ts";
 import { ObservableEngine } from "../../src/ui/observable-engine.ts";
 import { scriptedAdapter, spacedAdapter } from "../helpers/fake-adapters.ts";
@@ -177,6 +177,50 @@ describe("ObservableEngine.clear — delegates and notifies subscribers", () => 
 		expect(engine.getMessages()).toHaveLength(0);
 		expect(lastSnapshot).not.toBeNull();
 		expect((lastSnapshot as readonly Message[]).length).toBe(0);
+	});
+});
+
+describe("ObservableEngine.stop — delegates to the engine and notifies subscribers", () => {
+	it("aborts the in-flight send and triggers a listener notification", async () => {
+		const adapter: ChatAdapter = {
+			async *send(_messages, signal) {
+				while (!signal.aborted) {
+					await new Promise((r) => setTimeout(r, 5));
+				}
+			},
+		};
+		const engine = new ChatEngine({ adapter });
+		const observable = new ObservableEngine(engine);
+
+		const sendPromise = observable.sendMessage("hi");
+		await new Promise((r) => setTimeout(r, 10));
+
+		let calls = 0;
+		observable.subscribe(() => {
+			calls += 1;
+		});
+
+		observable.stop();
+
+		expect(calls).toBeGreaterThan(0);
+		await sendPromise;
+	});
+});
+
+describe("ObservableEngine.busy — reflects the wrapped engine's busy state", () => {
+	it("mirrors true while streaming and false once settled", async () => {
+		const adapter = scriptedAdapter([
+			{ type: "text-delta", delta: "hi" },
+			{ type: "done" },
+		]);
+		const engine = new ChatEngine({ adapter });
+		const observable = new ObservableEngine(engine);
+
+		expect(observable.busy).toBe(false);
+		const sendPromise = observable.sendMessage("hello");
+		expect(observable.busy).toBe(true);
+		await sendPromise;
+		expect(observable.busy).toBe(false);
 	});
 });
 

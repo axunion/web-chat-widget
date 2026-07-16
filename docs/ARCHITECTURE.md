@@ -2,8 +2,6 @@
 
 Design decisions and invariants for `web-chat-widget`. API signatures and usage examples are in [API.md](./API.md).
 
-> Sections marked **(planned)** are specified but not yet implemented. The implementation order and per-phase details live in [PLAN.md](./PLAN.md). Remove a marker in the same change that ships the feature.
-
 ---
 
 ## Overview
@@ -182,7 +180,7 @@ As `text-delta` chunks arrive from the adapter, the most recent assistant messag
 
 When the adapter yields an `error` chunk, an inline error row with a retry button appears in the affected message. `retry()` drops the last assistant message and re-sends the last user message through the same adapter.
 
-### Busy state and stop (planned)
+### Busy state and stop
 
 The engine exposes a single boolean `busy` state: `true` from the moment `sendMessage()` / `retry()` starts until the exchange settles (`done`, `error`, or stop). Transitions dispatch a `busy` event (`{ busy: boolean }`), forwarded by the widget like `message` / `error`.
 
@@ -220,13 +218,13 @@ A streaming adapter yields multiple `text-delta` chunks then `done`. A non-strea
 
 ### AbortSignal obligation
 
-The adapter **must** forward `signal` to `fetch` and check `signal.aborted` between chunks. The engine fires the signal when `clear()`, `destroy()`, or a superseding `sendMessage()` / `retry()` cancels an in-flight request — and **(planned)** when `stop()` is called.
+The adapter **must** forward `signal` to `fetch` and check `signal.aborted` between chunks. The engine fires the signal when `clear()`, `destroy()`, or a superseding `sendMessage()` / `retry()` cancels an in-flight request — and when `stop()` is called.
 
 ### Error-not-throw
 
 Network failures, HTTP errors, and JSON parse errors must all be yielded as `{ type: "error", error }`. Synchronous throws from inside `send` are forbidden. This keeps error handling at the engine call-site to a single code path.
 
-### Timeouts (planned)
+### Timeouts
 
 The `ChatAdapter` contract itself has no timeout — it is a per-adapter concern, so custom adapters stay free to define their own semantics. Both built-in adapters accept an opt-in `timeoutMs`:
 
@@ -278,8 +276,8 @@ new ChatWidget({ store }); // engine runs synchronously from here
 - A `done` chunk confirms an assistant message.
 - `clear()` empties the history.
 - `retry()` splices the history.
-- **(planned)** An `error` chunk settles the exchange — the user message and the `status: "error"` assistant message are persisted, so a reload never loses the user's input. A reloaded error message renders with its retry button intact.
-- **(planned)** `stop()` settles a partial response (see [Busy state and stop](#busy-state-and-stop-planned)).
+- An `error` chunk settles the exchange — the user message and the `status: "error"` assistant message are persisted, so a reload never loses the user's input. A reloaded error message renders with its retry button intact.
+- `stop()` settles a partial response (see [Busy state and stop](#busy-state-and-stop)).
 
 `save()` is **not** called on every `text-delta` (write cost + risk of garbage on stream interruption), nor immediately when the user message is appended (it's saved atomically with the assistant response).
 
@@ -333,11 +331,11 @@ Key design decisions:
 - **Responsive:** below 640 px viewport width, the panel expands to full screen. The non-modal invariant still holds even in full-screen mode.
 - **Reduced motion:** open/close transitions are disabled when `prefers-reduced-motion: reduce` is set.
 - **Scroll follow:** the message list auto-scrolls to the bottom only when the user's scroll position is already near the bottom (within ~48 px). Scrolling up to read history disables auto-follow.
-- **Unread badge (planned):** when an assistant response completes while the panel is closed, a badge appears on the FAB (`part="badge"`, containing visually-hidden text from the `unreadBadge` label). Opening the panel clears it. Only natural completions raise it — errors and stops do not.
-- **Input length cap (planned):** the `max-input-length` attribute / `maxInputLength` option applies a native `maxlength` to the textarea. Programmatic `sendMessage()` is intentionally not limited — the caller owns that input.
-- **Textarea auto-grow (planned):** the input grows with its content up to the existing CSS `max-height` (then scrolls), and resets to one row after send.
-- **Code block copy button (planned):** assistant code blocks get a copy button (`part="copy-button"`, labels `copyCode` / `copyCodeDone`) backed by `navigator.clipboard.writeText`. The copied string is taken from the code element's `textContent` only. When the Clipboard API is unavailable, the button is omitted entirely.
-- **Welcome message (planned):** the `welcome-message` attribute injects a single assistant greeting as `initialMessages` for declarative embeds. Stored history still wins (same rule as `initialMessages`). A *system prompt* attribute is deliberately **not** offered: the system prompt is trusted input and belongs server-side in the backend proxy, not in page markup.
+- **Unread badge:** when an assistant response completes while the panel is closed, a badge appears on the FAB (`part="badge"`, containing visually-hidden text from the `unreadBadge` label). Opening the panel clears it. Only natural completions raise it — errors and stops do not.
+- **Input length cap:** the `max-input-length` attribute / `maxInputLength` option applies a native `maxlength` to the textarea. Programmatic `sendMessage()` is intentionally not limited — the caller owns that input.
+- **Textarea auto-grow:** the input grows with its content up to the existing CSS `max-height` (then scrolls), and resets to one row after send.
+- **Code block copy button:** assistant code blocks get a copy button (`part="copy-button"`, labels `copyCode` / `copyCodeDone`) backed by `navigator.clipboard.writeText`. The copied string is taken from the code element's `textContent` only. When the Clipboard API is unavailable, the button is omitted entirely.
+- **Welcome message:** the `welcome-message` attribute injects a single assistant greeting as `initialMessages` for declarative embeds. Stored history still wins (same rule as `initialMessages`). A *system prompt* attribute is deliberately **not** offered: the system prompt is trusted input and belongs server-side in the backend proxy, not in page markup.
 
 ---
 
@@ -351,7 +349,7 @@ The panel does **not** trap focus. The host page remains interactive while the p
 - `aria-modal` is not set.
 - No focus trap. `Tab` cycles through panel elements then returns to the host page.
 
-**Focus management (planned):** `open()` moves focus to the textarea; `close()` returns focus to the FAB when focus was inside the panel at the time. This does not contradict non-modality — focus moves once in response to an explicit user action and is never trapped.
+**Focus management:** `open()` moves focus to the textarea; `close()` returns focus to the FAB when focus was inside the panel at the time. This does not contradict non-modality — focus moves once in response to an explicit user action and is never trapped.
 
 ### aria-live pattern (two-container)
 
@@ -362,7 +360,7 @@ Streaming delta updates must not spam screen readers. The implementation uses tw
 
 The committed container copy is done via `textContent`, which guarantees that any HTML or `javascript:` links in the LLM response never become active DOM nodes in the live region.
 
-Current limitation: the committed container copies the raw Markdown source string, so screen readers read the Markdown syntax characters. A `markdownToPlainText` pass is **(planned)** — see [PLAN.md](./PLAN.md): the committed copy will strip Markdown syntax down to plain text before assignment. The sanitization guarantee is unchanged because the result is still written via `textContent`. The helper stays internal (not exported from `"."`).
+The committed copy is passed through `markdownToPlainText` (`src/core/markdown.ts`), which strips Markdown syntax down to plain text before assignment, so screen readers hear prose rather than Markdown syntax characters. The sanitization guarantee is unchanged because the result is still written via `textContent`. The helper stays internal (not exported from `"."`).
 
 ### Keyboard
 
@@ -370,7 +368,7 @@ Current limitation: the committed container copies the raw Markdown source strin
 | --- | --- |
 | `Enter` | Send (when textarea is focused) |
 | `Shift + Enter` | Insert newline |
-| `Esc` | Close panel (when textarea is focused; **(planned)** anywhere inside the panel) |
+| `Esc` | Close panel (anywhere inside the panel) |
 | `Tab` | Move through panel elements; exits to host page after the last element |
 
 ---
@@ -379,7 +377,7 @@ Current limitation: the committed container copies the raw Markdown source strin
 
 The widget ships with two built-in locales: `"ja"` and `"en"`. The active locale is resolved from `navigator.language` (falling back to `"en"`) unless overridden explicitly.
 
-All UI labels are grouped in a `LabelDictionary` (19 keys — 4 of them planned). Any key can be overridden at construction time via `messages: Partial<LabelDictionary>`. Non-overridden keys use the locale default. The full key list is in [API.md §6](./API.md#6-locale-and-labels).
+All UI labels are grouped in a `LabelDictionary` (19 keys). Any key can be overridden at construction time via `messages: Partial<LabelDictionary>`. Non-overridden keys use the locale default. The full key list is in [API.md §6](./API.md#6-locale-and-labels).
 
 ---
 
@@ -421,7 +419,7 @@ No runtime dependencies means no third-party code in the bundle and no transitiv
 - Adapter invocation and `text-delta` accumulation.
 - Store `load` / `save`.
 - `EventTarget`-based event dispatch.
-- `sendMessage`, `clear`, `retry` operation methods — **(planned)** plus `stop()` and the `busy` flag.
+- `sendMessage`, `clear`, `retry`, `stop()` operation methods, plus the `busy` flag.
 
 `ChatEngine` has no DOM dependency and no knowledge of how the UI is rendered.
 
@@ -463,7 +461,7 @@ Follows semantic versioning:
 
 ## Future Work
 
-Not in scope for the current version. Items promoted out of this list into concrete, sequenced work live in [PLAN.md](./PLAN.md) and are marked **(planned)** throughout this document.
+Not in scope for the current version. Items promoted out of this list into concrete, sequenced work get their own phase-by-phase plan and **(planned)** markers throughout this document until they ship. (Feature wave 2 — engine busy/stop state, save-on-error, adapter timeouts, declarative config, focus management, unread badge, code-block copy button, textarea auto-grow, CI — shipped this way; no `(planned)` markers remain.)
 
 - Multi-thread (conversation tabs) UI and store schema extension
 - Tool call / function call visualization

@@ -1,5 +1,8 @@
 import { renderThemeCss } from "../core/theme.ts";
 
+// Shared with widget.ts's textarea auto-grow clamp so the two never drift.
+export const TEXTAREA_MAX_HEIGHT_PX = 120;
+
 const WIDGET_LAYOUT_CSS = `
 :host {
 	position: fixed;
@@ -59,6 +62,22 @@ const WIDGET_LAYOUT_CSS = `
 .fab:focus-visible {
 	outline: 2px solid var(--cw-color-primary);
 	outline-offset: 3px;
+}
+
+.badge {
+	display: none;
+	position: absolute;
+	top: 2px;
+	right: 2px;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: var(--cw-color-primary);
+	border: 2px solid var(--cw-color-bg);
+}
+
+.badge[data-visible] {
+	display: block;
 }
 
 /* === Panel === */
@@ -315,6 +334,7 @@ const WIDGET_LAYOUT_CSS = `
 	background: rgba(255, 255, 255, 0.22);
 }
 .message pre {
+	position: relative;
 	background: rgba(0, 0, 0, 0.07);
 	padding: 10px 12px;
 	border-radius: var(--cw-radius-sm);
@@ -322,6 +342,24 @@ const WIDGET_LAYOUT_CSS = `
 	margin: 6px 0 0;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 	font-size: 0.85em;
+}
+
+.copy-button {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	appearance: none;
+	border: 1px solid var(--cw-color-border);
+	background: var(--cw-color-bg);
+	color: var(--cw-color-muted);
+	border-radius: var(--cw-radius-sm);
+	padding: 2px 8px;
+	font-size: 11px;
+	cursor: pointer;
+}
+
+.copy-button:hover {
+	color: var(--cw-color-text);
 }
 .message pre code {
 	background: transparent;
@@ -395,7 +433,7 @@ const WIDGET_LAYOUT_CSS = `
 	line-height: 1.45;
 	outline: none;
 	min-height: 38px;
-	max-height: 120px;
+	max-height: ${TEXTAREA_MAX_HEIGHT_PX}px;
 	box-sizing: border-box;
 	overflow-y: auto;
 }
@@ -434,6 +472,10 @@ const WIDGET_LAYOUT_CSS = `
 .send-button:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
+}
+
+.send-button[data-busy] {
+	background: var(--cw-color-error);
 }
 
 /* === Mobile fullscreen === */

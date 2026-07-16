@@ -257,6 +257,17 @@ describe("createLocalStorageStore — schema validation on load", () => {
 		const store = createLocalStorageStore();
 		expect(store.load()).toEqual([]);
 	});
+
+	it("a persisted status='error' message round-trips through load() (PLAN.md P2)", () => {
+		// ARCHITECTURE.md §Save timing: an error chunk settles the exchange and is
+		// persisted, so a reload must not discard the error-status message.
+		const errored = createMessage("assistant", "", { status: "error" });
+		createLocalStorageStore().save([msg("hi"), errored]);
+
+		const loaded = createLocalStorageStore().load();
+		expect(loaded).toHaveLength(2);
+		expect(loaded[1].status).toBe("error");
+	});
 });
 
 // ---------------------------------------------------------------------------
