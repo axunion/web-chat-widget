@@ -65,9 +65,13 @@ Implemented per ARCHITECTURE.md §Distribution & Entry Points.
 
 ## Documentation
 
+Each document has exactly one audience — keep the separation (no tutorial prose in the reference docs, no reference dumps in the guide):
+
+- [docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md) — task-oriented integration guide: mock-first demo → backend wiring → customization → production checklist. Carries only the ordering and minimum code; details stay behind links to the other docs. English.
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — authoritative design decisions and architectural invariants. Covers core invariants, adapter/store contracts, security policy, accessibility, and future work. English.
 - [docs/API.md](./docs/API.md) — public API reference: type signatures, attribute/event tables, factory options, `LabelDictionary` (19 keys), `::part()` list. English.
-- [README.md](./README.md) — external-facing Quick Start and examples. English.
+- [README.md](./README.md) — external-facing storefront: highlights, a minimal mock-adapter Quick Start, and a documentation index table. Keep it lean (~90 lines); when it needs more content, link out instead of growing it. English.
+- [examples/backend/README.md](./examples/backend/README.md) — server-side contract, runnable Hono reference proxy, provider adaptation, production checklist. English.
 
 Always update ARCHITECTURE.md and/or API.md before implementing. Never let the implementation drift ahead of these docs. New API signatures must be reflected in API.md; design decisions and invariants go in ARCHITECTURE.md.
 

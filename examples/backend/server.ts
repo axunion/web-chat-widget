@@ -24,6 +24,7 @@ const {
 	OPENAI_API_KEY,
 	OPENAI_BASE_URL = "https://api.openai.com/v1",
 	OPENAI_MODEL = "gpt-4o-mini",
+	SYSTEM_PROMPT = "",
 	ALLOWED_ORIGIN = "*",
 	PORT = "8787",
 } = process.env;
@@ -75,6 +76,17 @@ function isValidBody(body: unknown): body is ChatRequestBody {
 	);
 }
 
+// The system prompt is trusted input, so it belongs here — never in page
+// markup, where any visitor could read or spoof it. When SYSTEM_PROMPT is set,
+// client-supplied system messages are dropped and replaced with ours.
+function withSystemPrompt(messages: WireMessage[]): WireMessage[] {
+	if (!SYSTEM_PROMPT) return messages;
+	return [
+		{ role: "system", content: SYSTEM_PROMPT },
+		...messages.filter((m) => m.role !== "system"),
+	];
+}
+
 async function callProvider(
 	body: ChatRequestBody,
 	stream: boolean,
@@ -89,8 +101,11 @@ async function callProvider(
 			authorization: `Bearer ${OPENAI_API_KEY}`,
 		},
 		body: JSON.stringify({
+			// Dev convenience: the client may pick a model. In production, ignore
+			// body.model (or check it against an allowlist) — otherwise anyone can
+			// run your most expensive model on your key.
 			model: body.model ?? OPENAI_MODEL,
-			messages: body.messages,
+			messages: withSystemPrompt(body.messages),
 			stream,
 		}),
 		signal,

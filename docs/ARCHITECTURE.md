@@ -1,6 +1,6 @@
 # Architecture
 
-Design decisions and invariants for `web-chat-widget`. API signatures and usage examples are in [API.md](./API.md).
+Design decisions and invariants for `web-chat-widget`. API signatures and usage examples are in [API.md](./API.md). New to the widget? Start with [GETTING-STARTED.md](./GETTING-STARTED.md).
 
 ---
 

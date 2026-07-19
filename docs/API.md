@@ -1,6 +1,6 @@
 # web-chat-widget API Reference
 
-Public API reference for `web-chat-widget`. For design decisions and architectural invariants, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+Public API reference for `web-chat-widget`. For design decisions and architectural invariants, see [ARCHITECTURE.md](./ARCHITECTURE.md). New to the widget? Start with [GETTING-STARTED.md](./GETTING-STARTED.md).
 
 ---
 

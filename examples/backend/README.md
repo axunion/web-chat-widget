@@ -105,6 +105,20 @@ mostly just forwards the upstream byte stream. If your provider differs (e.g.
 Anthropic), transform its events into the shape above, or return JSON and use
 `createJsonAdapter`.
 
+## System prompt
+
+The system prompt is **trusted input** — it steers the model, so it must not be
+editable by visitors. Keep it server-side (this is also why the widget offers
+no system-prompt attribute; see the welcome-message note in
+[ARCHITECTURE.md §Floating UI Behavior](../../docs/ARCHITECTURE.md#floating-ui-behavior)).
+
+Set `SYSTEM_PROMPT` in `.env` and this server prepends it as the system message
+on every request, dropping any system message the client may have sent:
+
+```dotenv
+SYSTEM_PROMPT="You are the support assistant for ACME Corp. Answer only questions about ACME products."
+```
+
 ## Adapting to other providers
 
 - **Any OpenAI-compatible API** (Azure OpenAI, OpenRouter, Together, local
@@ -112,3 +126,26 @@ Anthropic), transform its events into the shape above, or return JSON and use
 - **Anthropic / others**: call their SDK server-side and either (a) re-emit the
   `{choices:[{delta:{content}}]}` SSE shape for `createOpenAISseAdapter`, or
   (b) collect the full text and return `{ reply }` for `createJsonAdapter`.
+
+## Production checklist
+
+This example optimizes for readability, not hardening. Before exposing a proxy
+like this publicly — it spends **your** LLM budget — make sure you have:
+
+- **CORS locked down.** Set `ALLOWED_ORIGIN` to your real site's origin.
+  `*` is dev-only, and credentialed (cookie) auth will not work with it.
+- **Authentication.** Require a session cookie or your own bearer token on
+  `/api/*` and reject anonymous requests. The widget side attaches it via the
+  adapter's `headers` option. With cookie auth, also apply your framework's
+  CSRF protection; with a bearer token in a header, CSRF is not a concern.
+- **Rate limiting.** Cap requests per client (per IP / session). One chat
+  message can cost real money; an unthrottled loop costs a lot more.
+- **Input validation.** Bound the number of messages and the length of each
+  `content` before forwarding. This server only checks that `messages` is an
+  array.
+- **Model pinned server-side.** This example honors the client-sent `model`
+  field for dev convenience — in production, ignore it or check it against an
+  allowlist. Treat the entire request body as untrusted user input.
+- **System prompt server-side.** See [System prompt](#system-prompt) above.
+- **Timeouts on the widget.** Set the adapter's `timeoutMs` (or the
+  `api-timeout` attribute) so a stalled proxy doesn't leave users hanging.

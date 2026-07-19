@@ -15,51 +15,53 @@ A distributable package that embeds a floating AI chat UI into any web page. Zer
 
 ## Quick Start
 
-> **The widget talks to *your* backend, not directly to OpenAI/Anthropic.**
-> A browser cannot safely hold a provider API key — anything the page holds is
-> visible to the user. So the adapter's `url` points at a small server you run,
-> which attaches the secret key and relays the response:
->
-> ```
-> browser (widget)  --POST /api/chat-->  YOUR SERVER  --key-->  OpenAI / etc.
->                   <----  SSE  --------               <-- SSE --
-> ```
->
-> See [`examples/backend`](./examples/backend) for a ~120-line Hono proxy you
-> can copy, and [ARCHITECTURE.md §Authentication](./docs/ARCHITECTURE.md#authentication) for the rationale.
-
-### npm (ESM)
-
-```ts
-import { ChatWidget } from "web-chat-widget";
-import { createOpenAISseAdapter } from "web-chat-widget/adapters";
-
-ChatWidget.mount({
-  // Your backend endpoint — NOT api.openai.com.
-  adapter: createOpenAISseAdapter({ url: "/api/chat/sse" }),
-});
-```
-
-### `<script>` tag (IIFE)
+Try it with zero backend — `createMockAdapter` streams a canned reply so you
+can evaluate the widget in one minute:
 
 ```html
-<script src="https://your.cdn/chat-widget.iife.js"></script>
+<script src="https://unpkg.com/web-chat-widget/dist/chat-widget.iife.js"></script>
 <script>
   ChatWidget.mount({
-    adapter: ChatWidget.adapters.createOpenAISseAdapter({ url: "/api/chat/sse" }),
+    adapter: ChatWidget.adapters.createMockAdapter(),
   });
 </script>
 ```
 
-Not running an OpenAI-compatible endpoint? Return `{ "reply": "..." }` from your
-server and use `createJsonAdapter({ url: "/api/chat/json" })` instead, or
-implement the `ChatAdapter` interface for anything else (see [docs/API.md §4](./docs/API.md#4-adapters)).
+Or via npm:
+
+```ts
+import { ChatWidget } from "web-chat-widget";
+import { createMockAdapter } from "web-chat-widget/adapters";
+
+ChatWidget.mount({ adapter: createMockAdapter() });
+```
+
+To connect a real LLM, point a built-in adapter at **your own backend proxy**
+(never at the provider — a browser page cannot hold an API key secret):
+
+```ts
+import { createOpenAISseAdapter } from "web-chat-widget/adapters";
+
+ChatWidget.mount({
+  adapter: createOpenAISseAdapter({ url: "/api/chat/sse" }),
+});
+```
+
+**[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** walks the full path:
+mock → real backend (a copyable proxy lives in
+[`examples/backend`](./examples/backend)) → customization → production
+checklist.
 
 ## Documentation
 
-- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — design decisions and architectural invariants: zero-deps rationale, adapter/store contracts, security policy, accessibility, future-work backlog
-- [docs/API.md](./docs/API.md) — public API reference: type signatures, custom-element attributes, methods, events, `LabelDictionary`, CSS variables, `::part()` selectors, adapter / store factory options
-- CHANGELOG — to be added with the first release
+| Document | What it covers | Read it when |
+| --- | --- | --- |
+| [docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md) | Step-by-step integration: mock demo, backend wiring, customization, production checklist | You are embedding the widget for the first time |
+| [docs/API.md](./docs/API.md) | Full public API reference: types, attributes, methods, events, labels, CSS variables, `::part()`, adapter/store factories | You need the exact signature or option |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Design decisions and invariants: zero-deps rationale, adapter/store contracts, security policy, accessibility | You are contributing, or wondering *why* |
+| [examples/backend/README.md](./examples/backend/README.md) | The backend contract, a runnable Hono proxy, provider adaptation, production hardening | You are building the server side |
+
+CHANGELOG — to be added with the first release.
 
 ## Development
 
