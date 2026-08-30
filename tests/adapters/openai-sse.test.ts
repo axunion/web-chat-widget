@@ -397,6 +397,26 @@ describe("createOpenAISseAdapter — error handling", () => {
 		).toBeInstanceOf(Error);
 	});
 
+	it("cancels the response body on a non-2xx response", async () => {
+		// A non-2xx response is turned into an error chunk without the body ever
+		// being read, so the adapter must release the stream instead of leaving
+		// the connection held open until GC.
+		let cancelled = false;
+		const stream = new ReadableStream<Uint8Array>({
+			cancel() {
+				cancelled = true;
+			},
+		});
+		const adapter = createOpenAISseAdapter({
+			url: "https://example.com/api/chat",
+			fetchImpl: async () => new Response(stream, { status: 500 }),
+		});
+		const ctrl = new AbortController();
+		await collectChunks(adapter.send(minimalMessages, ctrl.signal));
+
+		expect(cancelled).toBe(true);
+	});
+
 	it("yields { type: 'error' } then ends on HTTP 400 response", async () => {
 		// API.md §4.2: HTTP status >= 400 → yield error
 		const adapter = createOpenAISseAdapter({

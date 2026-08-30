@@ -141,7 +141,7 @@ Defined in `lefthook.yml`. Installed automatically by `pnpm install`.
 
 ## Code Style
 
-- **Biome** for lint and formatting (`biome.json` at project root). `pnpm check` must pass.
+- **Biome** for lint and formatting. No `biome.json` is committed — this is deliberate: the project stays on Biome defaults. `pnpm check` must pass.
 - **TypeScript 6**, strict mode + `verbatimModuleSyntax` + `erasableSyntaxOnly`. Use `import type` where required.
 - `tsconfig.json` is `noEmit: true`. Declaration generation is handled by `tsconfig.build.json` (separate from the dev config).
 

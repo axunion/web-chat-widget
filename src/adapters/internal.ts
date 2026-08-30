@@ -131,6 +131,11 @@ export async function postAdapterRequest(
 		return { chunks: chunk ? [chunk] : [] };
 	}
 	if (!response.ok) {
+		// The body is never read on this path, so release it explicitly rather
+		// than leaving the connection held open until GC.
+		try {
+			await response.body?.cancel();
+		} catch {}
 		return {
 			chunks: [{ type: "error", error: new Error(`HTTP ${response.status}`) }],
 		};
