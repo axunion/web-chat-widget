@@ -1,7 +1,7 @@
 import type { LabelDictionary } from "../core/i18n.ts";
 import { markdownToNodes, markdownToPlainText } from "../core/markdown.ts";
 import type { Message } from "../core/messages.ts";
-import { el } from "./dom.ts";
+import { el, setLabel } from "./dom.ts";
 import { PART } from "./parts.ts";
 
 const ROLE_PART: Record<Message["role"], string> = {
@@ -11,12 +11,10 @@ const ROLE_PART: Record<Message["role"], string> = {
 };
 
 const FOLLOW_THRESHOLD_PX = 48;
-const ERROR_PART_SELECTOR = `[part~="${PART.messageError}"]`;
-
-interface ErrorBlockRefs {
-	text: HTMLElement;
-	button: HTMLButtonElement;
-}
+// Announcements are consumed the moment they are inserted, so only a short
+// tail needs to stay in the DOM; without a cap this sr-only host grows for
+// the whole life of the page.
+const MAX_LIVE_ANNOUNCEMENTS = 5;
 
 export interface LogHandle {
 	root: HTMLDivElement;
@@ -24,11 +22,17 @@ export interface LogHandle {
 	applyLabels(labels: LabelDictionary): void;
 }
 
+// Labelled controls inside a rendered message can't re-derive their own text,
+// so each one registers how to relabel itself. Refreshers hang off the cache
+// entry that owns their DOM, so evicting a message drops them with it.
+type LabelRefresher = (labels: LabelDictionary) => void;
+
 interface CachedEntry {
 	node: HTMLDivElement;
 	content: string;
 	status: string;
 	announced: boolean;
+	refreshers: LabelRefresher[];
 }
 
 export function buildLog(
@@ -50,28 +54,18 @@ export function buildLog(
 
 	let currentLabels = labels;
 	const cache = new Map<string, CachedEntry>();
-	const errorBlocks = new WeakMap<HTMLDivElement, ErrorBlockRefs>();
-	const copyButtons = new Set<(labels: LabelDictionary) => void>();
+	// Node identity and order of the last committed render, so an unchanged
+	// message list doesn't detach and re-insert every message node.
+	let lastOrdered: readonly HTMLDivElement[] = [];
 
 	function applyLabels(next: LabelDictionary): void {
 		currentLabels = next;
 		root.setAttribute("aria-label", next.panelTitle);
-		refreshErrorBlocks();
-		for (const refresh of copyButtons) refresh(next);
-	}
-	applyLabels(labels);
-
-	function refreshErrorBlocks(): void {
 		for (const entry of cache.values()) {
-			const block = entry.node.querySelector(ERROR_PART_SELECTOR);
-			if (!(block instanceof HTMLDivElement)) continue;
-			const refs = errorBlocks.get(block);
-			if (!refs) continue;
-			refs.text.textContent = currentLabels.errorGeneric;
-			refs.button.textContent = currentLabels.errorRetry;
-			refs.button.setAttribute("aria-label", currentLabels.errorRetry);
+			for (const refresh of entry.refreshers) refresh(next);
 		}
 	}
+	applyLabels(labels);
 
 	function render(messages: readonly Message[]): void {
 		const distanceFromBottom =
@@ -84,18 +78,20 @@ export function buildLog(
 			const status = message.status ?? "done";
 			const existing = cache.get(message.id);
 			if (!existing) {
-				const node = createMessageNode(message);
-				cache.set(message.id, {
-					node,
+				const entry: CachedEntry = {
+					node: createMessageNode(message),
 					content: message.content,
 					status,
 					announced: false,
-				});
-				ordered.push(node);
+					refreshers: [],
+				};
+				updateMessageNode(entry, message);
+				cache.set(message.id, entry);
+				ordered.push(entry.node);
 				continue;
 			}
 			if (existing.content !== message.content || existing.status !== status) {
-				updateMessageNode(existing.node, message);
+				updateMessageNode(existing, message);
 				existing.content = message.content;
 				existing.status = status;
 			}
@@ -105,11 +101,25 @@ export function buildLog(
 			if (!seenIds.has(id)) cache.delete(id);
 		}
 		if (messages.length === 0) liveHost.replaceChildren();
-		streamingHost.replaceChildren(...ordered);
+		if (!sameNodes(ordered, lastOrdered)) {
+			streamingHost.replaceChildren(...ordered);
+			lastOrdered = ordered;
+		}
 		announceCompleted(messages);
 		if (shouldFollow) {
 			root.scrollTop = root.scrollHeight - root.clientHeight;
 		}
+	}
+
+	function sameNodes(
+		a: readonly HTMLDivElement[],
+		b: readonly HTMLDivElement[],
+	): boolean {
+		if (a.length !== b.length) return false;
+		for (let i = 0; i < a.length; i++) {
+			if (a[i] !== b[i]) return false;
+		}
+		return true;
 	}
 
 	// Walk newest-to-oldest: streaming deltas only mutate the trailing
@@ -126,22 +136,26 @@ export function buildLog(
 			const block = document.createElement("div");
 			block.textContent = markdownToPlainText(message.content);
 			liveHost.appendChild(block);
+			while (liveHost.childElementCount > MAX_LIVE_ANNOUNCEMENTS) {
+				liveHost.firstElementChild?.remove();
+			}
 		}
 	}
 
 	function createMessageNode(message: Message): HTMLDivElement {
-		const rolePart = ROLE_PART[message.role];
-		const node = el("div", {
+		return el("div", {
 			class: `message message-${message.role}`,
-			part: `${PART.message} ${rolePart}`,
+			part: `${PART.message} ${ROLE_PART[message.role]}`,
 			attrs: { "data-message-id": message.id },
 		});
-		updateMessageNode(node, message);
-		return node;
 	}
 
 	// User content stays plain text (XSS containment — see ARCHITECTURE.md §Sanitization).
-	function updateMessageNode(node: HTMLDivElement, message: Message): void {
+	function updateMessageNode(entry: CachedEntry, message: Message): void {
+		const { node } = entry;
+		// The node's children are rebuilt below, so any refresher registered by
+		// the previous pass now points at discarded DOM.
+		entry.refreshers = [];
 		node.setAttribute("data-status", message.status ?? "done");
 		if (message.role === "user") {
 			node.textContent = message.content;
@@ -149,39 +163,30 @@ export function buildLog(
 		}
 		node.replaceChildren(...markdownToNodes(message.content));
 		if (message.role === "assistant" && message.status === "error") {
-			node.appendChild(buildErrorBlock());
+			node.appendChild(buildErrorBlock(entry));
 		}
 		if (message.role === "assistant" && message.status === "done") {
-			attachCopyButtons(node);
+			attachCopyButtons(entry);
 		}
 	}
 
 	// Copy buttons only matter once a message has settled, so this is
 	// skipped for in-progress streaming updates (see the "done" guard above).
 	// Omitted entirely without a Clipboard API.
-	function attachCopyButtons(node: HTMLDivElement): void {
+	function attachCopyButtons(entry: CachedEntry): void {
 		if (!navigator.clipboard?.writeText) return;
-		for (const pre of Array.from(node.querySelectorAll("pre"))) {
+		for (const pre of Array.from(entry.node.querySelectorAll("pre"))) {
 			const codeEl = pre.querySelector("code") ?? pre;
 			const button = el("button", {
 				class: "copy-button",
 				part: PART.copyButton,
 				attrs: { type: "button" },
 			});
-			const setLabel = (text: string): void => {
-				button.textContent = text;
-				button.setAttribute("aria-label", text);
-			};
 			let showingCopied = false;
-			setLabel(currentLabels.copyCode);
-			const refresh = (next: LabelDictionary): void => {
-				if (!button.isConnected) {
-					copyButtons.delete(refresh);
-					return;
-				}
-				setLabel(showingCopied ? next.copyCodeDone : next.copyCode);
-			};
-			copyButtons.add(refresh);
+			setLabel(button, currentLabels.copyCode);
+			entry.refreshers.push((next) => {
+				setLabel(button, showingCopied ? next.copyCodeDone : next.copyCode);
+			});
 			let revertHandle: ReturnType<typeof setTimeout> | null = null;
 			button.addEventListener("click", async () => {
 				try {
@@ -192,10 +197,10 @@ export function buildLog(
 				}
 				if (revertHandle !== null) clearTimeout(revertHandle);
 				showingCopied = true;
-				setLabel(currentLabels.copyCodeDone);
+				setLabel(button, currentLabels.copyCodeDone);
 				revertHandle = setTimeout(() => {
 					showingCopied = false;
-					setLabel(currentLabels.copyCode);
+					setLabel(button, currentLabels.copyCode);
 					revertHandle = null;
 				}, 2000);
 			});
@@ -203,25 +208,23 @@ export function buildLog(
 		}
 	}
 
-	function buildErrorBlock(): HTMLDivElement {
+	function buildErrorBlock(entry: CachedEntry): HTMLDivElement {
 		const text = el("span", { class: "message-error-text" });
 		text.textContent = currentLabels.errorGeneric;
 		const retry = el("button", {
 			class: "retry-button",
-			attrs: {
-				type: "button",
-				"aria-label": currentLabels.errorRetry,
-			},
+			attrs: { type: "button" },
 		});
-		retry.textContent = currentLabels.errorRetry;
+		setLabel(retry, currentLabels.errorRetry);
 		retry.addEventListener("click", () => onRetry());
-		const block = el(
-			"div",
-			{ class: "message-error", part: PART.messageError },
-			[text, retry],
-		);
-		errorBlocks.set(block, { text, button: retry });
-		return block;
+		entry.refreshers.push((next) => {
+			text.textContent = next.errorGeneric;
+			setLabel(retry, next.errorRetry);
+		});
+		return el("div", { class: "message-error", part: PART.messageError }, [
+			text,
+			retry,
+		]);
 	}
 
 	return { root, render, applyLabels };

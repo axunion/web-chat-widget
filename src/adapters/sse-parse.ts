@@ -6,18 +6,14 @@ export interface SseParser {
 }
 
 function parseEvent(raw: string): SseEvent | null {
-	const lines = raw.split("\n");
 	const dataLines: string[] = [];
-	let hasData = false;
-	for (const line of lines) {
-		if (line.startsWith("data:")) {
-			hasData = true;
-			let value = line.slice(5);
-			if (value.startsWith(" ")) value = value.slice(1);
-			dataLines.push(value);
-		}
+	for (const line of raw.split("\n")) {
+		if (!line.startsWith("data:")) continue;
+		let value = line.slice(5);
+		if (value.startsWith(" ")) value = value.slice(1);
+		dataLines.push(value);
 	}
-	if (!hasData) return null;
+	if (dataLines.length === 0) return null;
 	const data = dataLines.join("\n");
 	if (data === "[DONE]") return { type: "done" };
 	return { type: "data", data };

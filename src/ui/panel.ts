@@ -1,5 +1,5 @@
 import type { LabelDictionary } from "../core/i18n.ts";
-import { el } from "./dom.ts";
+import { el, setLabel } from "./dom.ts";
 import { buildInput, type InputHandle } from "./input.ts";
 import { buildLog, type LogHandle } from "./log.ts";
 import { PART } from "./parts.ts";
@@ -27,7 +27,6 @@ export interface BuildPanelOptions {
 export function buildPanel(options: BuildPanelOptions): PanelHandle {
 	const { labels, onRetry, onClear } = options;
 	let currentLabels = labels;
-	let historyEmpty: boolean | null = null;
 
 	const title = el("div", { class: "panel-title" });
 	const clearButton = el(
@@ -67,8 +66,7 @@ export function buildPanel(options: BuildPanelOptions): PanelHandle {
 	function applyLabels(next: LabelDictionary): void {
 		currentLabels = next;
 		title.textContent = next.panelTitle;
-		closeButton.setAttribute("aria-label", next.closeButton);
-		closeButton.textContent = next.closeButton;
+		setLabel(closeButton, next.closeButton);
 		clearButton.setAttribute("aria-label", next.clearHistory);
 		root.setAttribute("aria-label", next.panelTitle);
 		logHandle.applyLabels(next);
@@ -76,15 +74,11 @@ export function buildPanel(options: BuildPanelOptions): PanelHandle {
 	}
 
 	function setOpen(open: boolean): void {
-		if (open) root.setAttribute("data-open", "");
-		else root.removeAttribute("data-open");
+		root.toggleAttribute("data-open", open);
 	}
 
 	function setHistoryEmpty(empty: boolean): void {
-		if (historyEmpty === empty) return;
-		historyEmpty = empty;
-		if (empty) clearButton.setAttribute("disabled", "");
-		else clearButton.removeAttribute("disabled");
+		clearButton.toggleAttribute("disabled", empty);
 	}
 
 	applyLabels(labels);

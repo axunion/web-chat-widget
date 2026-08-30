@@ -201,37 +201,21 @@ export class ChatWidget extends HTMLElement {
 			signal,
 		});
 		this.wireInputHandlers(signal);
-		// Registered before forwardEngineEvent so the widget's own DOM (button
-		// part, unread badge) is already updated by the time a host page's
-		// forwarded-event listener observes the same transition.
-		this.engine.addEventListener(
-			"busy",
-			(event) => {
-				const { detail } = event as CustomEvent<ChatEventMap["busy"]>;
-				this.panel.inputHandle.setBusy(detail.busy);
-			},
-			{ signal },
-		);
-		this.engine.addEventListener(
-			"message",
-			(event) => {
-				const { detail } = event as CustomEvent<ChatEventMap["message"]>;
-				if (detail.role === "assistant" && !this.isOpen) {
-					this.fab.setUnread(true);
-				}
-			},
-			{ signal },
-		);
-		this.forwardEngineEvent("message", signal);
+		this.forwardEngineEvent("message", signal, (detail) => {
+			if (detail.role === "assistant" && !this.isOpen) {
+				this.fab.setUnread(true);
+			}
+		});
 		this.forwardEngineEvent("error", signal);
-		this.forwardEngineEvent("busy", signal);
-		this.observable.subscribe((messages) => {
+		this.forwardEngineEvent("busy", signal, (detail) => {
+			this.panel.inputHandle.setBusy(detail.busy);
+		});
+		const renderMessages = (messages: readonly Message[]): void => {
 			this.panel.logHandle.render(messages);
 			this.panel.setHistoryEmpty(messages.length === 0);
-		});
-		const initialMessages = this.engine.getMessages();
-		this.panel.logHandle.render(initialMessages);
-		this.panel.setHistoryEmpty(initialMessages.length === 0);
+		};
+		this.observable.subscribe(renderMessages);
+		renderMessages(this.observable.getMessages());
 		this.initialized = true;
 		if (this.hasAttribute("open")) this.open();
 		this.dispatchEvent(createChatEvent("ready", undefined));
@@ -239,14 +223,20 @@ export class ChatWidget extends HTMLElement {
 
 	// Re-dispatch engine events on the element so host pages can listen per
 	// API.md §2.3. A fresh event is created to keep bubbles/composed false.
+	// `before` runs the widget's own reaction first, so the internal DOM
+	// (button part, unread badge) is already updated by the time a host page's
+	// listener observes the same transition — an ordering the single call site
+	// now enforces structurally rather than by registration order.
 	private forwardEngineEvent<K extends "message" | "error" | "busy">(
 		type: K,
 		signal: AbortSignal,
+		before?: (detail: ChatEventMap[K]) => void,
 	): void {
 		this.engine?.addEventListener(
 			type,
 			(event) => {
 				const { detail } = event as CustomEvent<ChatEventMap[K]>;
+				before?.(detail);
 				this.dispatchEvent(createChatEvent(type, detail));
 			},
 			{ signal },
@@ -254,18 +244,15 @@ export class ChatWidget extends HTMLElement {
 	}
 
 	async sendMessage(text: string): Promise<void> {
-		if (!this.observable) return;
-		await this.observable.sendMessage(text);
+		await this.observable?.sendMessage(text);
 	}
 
 	async retry(): Promise<void> {
-		if (!this.observable) return;
-		await this.observable.retry();
+		await this.observable?.retry();
 	}
 
 	clear(): void {
-		if (!this.observable) return;
-		this.observable.clear();
+		this.observable?.clear();
 	}
 
 	stop(): void {
@@ -366,7 +353,7 @@ export class ChatWidget extends HTMLElement {
 			adapter,
 			position,
 			theme,
-			locale: locale ?? undefined,
+			locale,
 			initialMessages: opts?.initialMessages ?? this.buildWelcomeMessage(),
 			store,
 			maxInputLength:

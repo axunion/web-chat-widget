@@ -1,5 +1,5 @@
 import type { LabelDictionary } from "../core/i18n.ts";
-import { el } from "./dom.ts";
+import { el, setLabel } from "./dom.ts";
 import { PART } from "./parts.ts";
 
 export interface InputHandle {
@@ -38,18 +38,16 @@ export function buildInput(labels: LabelDictionary): InputHandle {
 	}
 
 	function applyButtonLabel(): void {
-		const label = busyState
-			? currentLabels.stopButton
-			: currentLabels.sendButton;
-		sendButton.setAttribute("aria-label", label);
-		sendButton.textContent = label;
+		setLabel(
+			sendButton,
+			busyState ? currentLabels.stopButton : currentLabels.sendButton,
+		);
 	}
 
 	function setBusy(busy: boolean): void {
 		busyState = busy;
 		sendButton.setAttribute("part", busy ? PART.stopButton : PART.sendButton);
-		if (busy) sendButton.setAttribute("data-busy", "");
-		else sendButton.removeAttribute("data-busy");
+		sendButton.toggleAttribute("data-busy", busy);
 		applyButtonLabel();
 	}
 

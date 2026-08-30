@@ -1,7 +1,8 @@
 import type { Message } from "../core/messages.ts";
 import {
-	classifyErrorChunk,
 	createTimeoutController,
+	isRecord,
+	postAdapterRequest,
 	toError,
 	toWireMessages,
 } from "./internal.ts";
@@ -16,15 +17,10 @@ export interface JsonAdapterOptions {
 }
 
 const defaultExtract = (json: unknown): string => {
-	if (
-		typeof json !== "object" ||
-		json === null ||
-		!("reply" in json) ||
-		typeof (json as { reply: unknown }).reply !== "string"
-	) {
+	if (!isRecord(json) || typeof json.reply !== "string") {
 		throw new Error("Response JSON does not contain a string 'reply' field");
 	}
-	return (json as { reply: string }).reply;
+	return json.reply;
 };
 
 /**
@@ -56,42 +52,28 @@ async function* streamJson(
 	const timeout = createTimeoutController(signal, options.timeoutMs);
 	try {
 		timeout.arm();
-		let response: Response;
-		try {
-			response = await fetchImpl(options.url, {
-				method: "POST",
-				headers: {
-					"content-type": "application/json",
-					...options.headers,
-				},
-				body: JSON.stringify(body),
-				signal: timeout.signal,
-			});
-		} catch (err) {
-			yield* classifyErrorChunk(timeout, err);
-			return;
-		}
-
-		if (!response.ok) {
-			yield { type: "error", error: new Error(`HTTP ${response.status}`) };
+		const result = await postAdapterRequest(options, fetchImpl, body, timeout);
+		if ("chunks" in result) {
+			yield* result.chunks;
 			return;
 		}
 
 		let parsed: unknown;
 		try {
-			parsed = await response.json();
+			parsed = await result.response.json();
 		} catch (err) {
-			yield* classifyErrorChunk(timeout, err);
+			const chunk = timeout.classifyError(err);
+			if (chunk) yield chunk;
 			return;
 		}
 
 		let delta: string;
 		try {
-			const result = extract(parsed);
-			if (typeof result !== "string") {
+			const extracted = extract(parsed);
+			if (typeof extracted !== "string") {
 				throw new Error("extract did not return a string");
 			}
-			delta = result;
+			delta = extracted;
 		} catch (err) {
 			yield { type: "error", error: toError(err) };
 			return;

@@ -2,10 +2,12 @@ import type { Message, MessageRole } from "../core/messages.ts";
 import {
 	classifyErrorChunk,
 	createTimeoutController,
+	isRecord,
+	postAdapterRequest,
 	toError,
 	toWireMessages,
 } from "./internal.ts";
-import { createSseParser } from "./sse-parse.ts";
+import { createSseParser, type SseEvent } from "./sse-parse.ts";
 import type { AdapterChunk, ChatAdapter } from "./types.ts";
 
 export interface OpenAISseAdapterOptions {
@@ -20,10 +22,6 @@ interface OpenAiRequestBody {
 	messages: Array<{ role: MessageRole; content: string }>;
 	stream: true;
 	model?: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function extractDelta(data: string): AdapterChunk | null {
@@ -50,6 +48,25 @@ function extractDelta(data: string): AdapterChunk | null {
 	const delta = isRecord(first.delta) ? first.delta.content : undefined;
 	if (typeof delta !== "string" || delta.length === 0) return null;
 	return { type: "text-delta", delta };
+}
+
+// Drains one batch of parsed SSE events. Returns true when the stream is
+// finished (a [DONE] marker or an error chunk), so the streaming path and the
+// end-of-stream flush share one copy of the event-handling rules.
+function* drainEvents(
+	events: readonly SseEvent[],
+): Generator<AdapterChunk, boolean> {
+	for (const evt of events) {
+		if (evt.type === "done") {
+			yield { type: "done" };
+			return true;
+		}
+		const chunk = extractDelta(evt.data);
+		if (!chunk) continue;
+		yield chunk;
+		if (chunk.type === "error") return true;
+	}
+	return false;
 }
 
 function buildBody(
@@ -94,29 +111,12 @@ async function* streamOpenAI(
 	const timeout = createTimeoutController(signal, options.timeoutMs);
 	try {
 		timeout.arm();
-		let response: Response;
-		try {
-			response = await fetchImpl(options.url, {
-				method: "POST",
-				headers: {
-					"content-type": "application/json",
-					...options.headers,
-				},
-				body: JSON.stringify(body),
-				signal: timeout.signal,
-			});
-		} catch (err) {
-			yield* classifyErrorChunk(timeout, err);
+		const result = await postAdapterRequest(options, fetchImpl, body, timeout);
+		if ("chunks" in result) {
+			yield* result.chunks;
 			return;
 		}
-
-		if (!response.ok) {
-			yield {
-				type: "error",
-				error: new Error(`HTTP ${response.status}`),
-			};
-			return;
-		}
+		const { response } = result;
 
 		if (!response.body) {
 			yield { type: "error", error: new Error("Response has no body") };
@@ -129,25 +129,16 @@ async function* streamOpenAI(
 		try {
 			while (true) {
 				if (signal.aborted) return;
-				let result: ReadableStreamReadResult<Uint8Array>;
+				let read: ReadableStreamReadResult<Uint8Array>;
 				try {
-					result = await reader.read();
+					read = await reader.read();
 				} catch (err) {
 					yield* classifyErrorChunk(timeout, err);
 					return;
 				}
 
-				if (result.done) {
-					for (const evt of parser.flush()) {
-						if (evt.type === "done") {
-							yield { type: "done" };
-							return;
-						}
-						const chunk = extractDelta(evt.data);
-						if (!chunk) continue;
-						yield chunk;
-						if (chunk.type === "error") return;
-					}
+				if (read.done) {
+					if (yield* drainEvents(parser.flush())) return;
 					yield { type: "done" };
 					return;
 				}
@@ -155,17 +146,8 @@ async function* streamOpenAI(
 				// Only re-arm for a genuine next read — arming right before a
 				// `done` return above would just be cleared again by disarm().
 				timeout.arm();
-				const text = decoder.decode(result.value, { stream: true });
-				for (const evt of parser.feed(text)) {
-					if (evt.type === "done") {
-						yield { type: "done" };
-						return;
-					}
-					const chunk = extractDelta(evt.data);
-					if (!chunk) continue;
-					yield chunk;
-					if (chunk.type === "error") return;
-				}
+				const text = decoder.decode(read.value, { stream: true });
+				if (yield* drainEvents(parser.feed(text))) return;
 			}
 		} finally {
 			try {

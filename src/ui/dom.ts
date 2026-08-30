@@ -26,3 +26,11 @@ export function el<K extends keyof HTMLElementTagNameMap>(
 	}
 	return element;
 }
+
+// A visible control's text and its accessible name are the same string
+// everywhere in this widget; keeping them in one call stops the two from
+// drifting apart when a label changes.
+export function setLabel(element: Element, text: string): void {
+	element.textContent = text;
+	element.setAttribute("aria-label", text);
+}

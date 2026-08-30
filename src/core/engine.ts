@@ -1,4 +1,5 @@
 import type { ChatAdapter } from "../adapters/types.ts";
+import { toError } from "./errors.ts";
 import { createChatEvent } from "./events.ts";
 import type { Message } from "./messages.ts";
 import { createMessage } from "./messages.ts";
@@ -48,12 +49,7 @@ export class ChatEngine extends EventTarget {
 		this.dispatchEvent(
 			createChatEvent("message", { role: "user", content: text }),
 		);
-		const adapterMessages = [...this.messages];
-		const assistantMsg = createMessage("assistant", "", {
-			status: "streaming",
-		});
-		this.messages.push(assistantMsg);
-		await this.runAdapter(assistantMsg, adapterMessages);
+		await this.startAssistantTurn();
 	}
 
 	async retry(): Promise<void> {
@@ -65,12 +61,7 @@ export class ChatEngine extends EventTarget {
 		// Save before pushing the streaming placeholder, so the persisted
 		// snapshot is the user-only state if streaming is interrupted.
 		this.store?.save(this.messages);
-		const adapterMessages = [...this.messages];
-		const assistantMsg = createMessage("assistant", "", {
-			status: "streaming",
-		});
-		this.messages.push(assistantMsg);
-		await this.runAdapter(assistantMsg, adapterMessages);
+		await this.startAssistantTurn();
 	}
 
 	stop(): void {
@@ -139,6 +130,34 @@ export class ChatEngine extends EventTarget {
 		return -1;
 	}
 
+	// Snapshot the prompt, append the streaming placeholder, run the adapter.
+	// Shared by sendMessage() and retry(), which differ only in what they do
+	// to the history beforehand.
+	private async startAssistantTurn(): Promise<void> {
+		const adapterMessages = [...this.messages];
+		const assistantMsg = createMessage("assistant", "", {
+			status: "streaming",
+		});
+		this.messages.push(assistantMsg);
+		await this.runAdapter(assistantMsg, adapterMessages);
+	}
+
+	private emitAssistantMessage(assistantMsg: Message): void {
+		this.dispatchEvent(
+			createChatEvent("message", {
+				role: "assistant",
+				content: assistantMsg.content,
+			}),
+		);
+	}
+
+	// One place for the save-then-dispatch ordering an errored turn must follow.
+	private failTurn(assistantMsg: Message, error: Error): void {
+		assistantMsg.status = "error";
+		this.store?.save(this.messages);
+		this.dispatchEvent(createChatEvent("error", { error }));
+	}
+
 	private async runAdapter(
 		assistantMsg: Message,
 		adapterMessages: readonly Message[],
@@ -161,17 +180,10 @@ export class ChatEngine extends EventTarget {
 				if (chunk.type === "done") {
 					assistantMsg.status = "done";
 					this.store?.save(this.messages);
-					this.dispatchEvent(
-						createChatEvent("message", {
-							role: "assistant",
-							content: assistantMsg.content,
-						}),
-					);
+					this.emitAssistantMessage(assistantMsg);
 					return;
 				}
-				assistantMsg.status = "error";
-				this.store?.save(this.messages);
-				this.dispatchEvent(createChatEvent("error", { error: chunk.error }));
+				this.failTurn(assistantMsg, chunk.error);
 				return;
 			}
 			// The generator completed without yielding `done` — an adapter
@@ -182,20 +194,12 @@ export class ChatEngine extends EventTarget {
 			if (!signal.aborted) {
 				this.settleStreaming();
 				if (assistantMsg.status === "done") {
-					this.dispatchEvent(
-						createChatEvent("message", {
-							role: "assistant",
-							content: assistantMsg.content,
-						}),
-					);
+					this.emitAssistantMessage(assistantMsg);
 				}
 			}
 		} catch (err) {
 			if (signal.aborted) return;
-			const error = err instanceof Error ? err : new Error(String(err));
-			assistantMsg.status = "error";
-			this.store?.save(this.messages);
-			this.dispatchEvent(createChatEvent("error", { error }));
+			this.failTurn(assistantMsg, toError(err));
 		} finally {
 			if (this.controller === controller) {
 				this.controller = null;

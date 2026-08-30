@@ -507,7 +507,7 @@ const WIDGET_LAYOUT_CSS = `
 }
 `;
 
-export const WIDGET_CSS = `${WIDGET_LAYOUT_CSS}\n${renderThemeCss()}`;
+const WIDGET_CSS = `${WIDGET_LAYOUT_CSS}\n${renderThemeCss()}`;
 
 export function buildStyleElement(): HTMLStyleElement {
 	const style = document.createElement("style");

@@ -1,9 +1,11 @@
+import { toError } from "../core/errors.ts";
 import type { Message, MessageRole } from "../core/messages.ts";
 import type { AdapterChunk } from "./types.ts";
 
-export function toError(err: unknown): Error {
-	if (err instanceof Error) return err;
-	return new Error(String(err));
+export { toError };
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function toWireMessages(
@@ -16,7 +18,6 @@ export interface TimeoutController {
 	readonly signal: AbortSignal;
 	arm(): void;
 	disarm(): void;
-	readonly timedOut: boolean;
 	// Turns a caught fetch/stream error into the AdapterChunk it should
 	// produce: null when the outer signal caused it (caller just returns,
 	// yielding nothing), a timeout chunk when the inactivity window fired,
@@ -27,8 +28,8 @@ export interface TimeoutController {
 
 // Composes an internal AbortController with the outer signal via an explicit
 // listener (not AbortSignal.any, for happy-dom compatibility). arm()/disarm()
-// bound the inactivity window; timedOut distinguishes a timeout-triggered
-// abort from an outer-triggered one so adapters can map each to the right
+// bound the inactivity window; a timeout-triggered abort is distinguished from
+// an outer-triggered one so classifyError can map each to the right
 // AdapterChunk. timeoutMs undefined degenerates to a pass-through of `outer`
 // — zero behavior change for callers that don't opt in.
 export function createTimeoutController(
@@ -40,9 +41,6 @@ export function createTimeoutController(
 			signal: outer,
 			arm() {},
 			disarm() {},
-			get timedOut() {
-				return false;
-			},
 			classifyError(err) {
 				if (outer.aborted) return null;
 				return { type: "error", error: toError(err) };
@@ -79,9 +77,6 @@ export function createTimeoutController(
 		signal: internal.signal,
 		arm,
 		disarm,
-		get timedOut() {
-			return timedOutFlag;
-		},
 		classifyError(err) {
 			if (outer.aborted) return null;
 			if (timedOutFlag) {
@@ -95,7 +90,7 @@ export function createTimeoutController(
 	};
 }
 
-// Shared by every adapter's fetch/read catch blocks: `yield* classifyErrorChunk(...)`
+// Shared by every adapter's stream-read catch blocks: `yield* classifyErrorChunk(...)`
 // yields the classified chunk (if any); the caller follows with `return;`.
 export function* classifyErrorChunk(
 	timeout: TimeoutController,
@@ -103,4 +98,42 @@ export function* classifyErrorChunk(
 ): Generator<AdapterChunk> {
 	const chunk = timeout.classifyError(err);
 	if (chunk) yield chunk;
+}
+
+export interface AdapterRequestOptions {
+	url: string;
+	headers?: Record<string, string>;
+}
+
+// The request prologue every adapter shares: POST the JSON body under the
+// timeout controller's signal, then normalize transport failures and non-2xx
+// responses into AdapterChunks. Keeping the HTTP-error policy here means a new
+// adapter inherits it instead of restating it.
+export async function postAdapterRequest(
+	options: AdapterRequestOptions,
+	fetchImpl: typeof fetch,
+	body: unknown,
+	timeout: TimeoutController,
+): Promise<{ response: Response } | { chunks: AdapterChunk[] }> {
+	let response: Response;
+	try {
+		response = await fetchImpl(options.url, {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				...options.headers,
+			},
+			body: JSON.stringify(body),
+			signal: timeout.signal,
+		});
+	} catch (err) {
+		const chunk = timeout.classifyError(err);
+		return { chunks: chunk ? [chunk] : [] };
+	}
+	if (!response.ok) {
+		return {
+			chunks: [{ type: "error", error: new Error(`HTTP ${response.status}`) }],
+		};
+	}
+	return { response };
 }

@@ -20,5 +20,3 @@ export const PART = {
 	badge: "badge",
 	copyButton: "copy-button",
 } as const;
-
-export type PartName = (typeof PART)[keyof typeof PART];

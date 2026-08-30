@@ -38,10 +38,14 @@ function blockToPlainText(block: Block): string {
 			.map((item, i) => `${i + 1}. ${inlineToPlainText(item)}`)
 			.join("\n");
 	}
-	return block.text
-		.split("\n")
-		.map((line) => inlineToPlainText(line.replace(/ {2}$/, "")))
-		.join("\n");
+	return splitParagraphLines(block.text).map(inlineToPlainText).join("\n");
+}
+
+// A trailing double space is Markdown's hard line break: the break itself is
+// rendered structurally (a <br>), so the marker is stripped from the text.
+// Shared so the DOM output and the aria-live plain-text copy can't diverge.
+function splitParagraphLines(text: string): string[] {
+	return text.split("\n").map((line) => line.replace(/ {2}$/, ""));
 }
 
 function inlineToPlainText(text: string): string {
@@ -71,21 +75,15 @@ function parseBlocks(source: string): Block[] {
 			continue;
 		}
 		if (UNORDERED_ITEM.test(line)) {
-			const items: string[] = [];
-			while (i < lines.length && UNORDERED_ITEM.test(lines[i])) {
-				items.push(lines[i].replace(UNORDERED_ITEM, ""));
-				i++;
-			}
-			blocks.push({ type: "ul", items });
+			const collected = collectItems(lines, i, UNORDERED_ITEM);
+			i = collected.next;
+			blocks.push({ type: "ul", items: collected.items });
 			continue;
 		}
 		if (ORDERED_ITEM.test(line)) {
-			const items: string[] = [];
-			while (i < lines.length && ORDERED_ITEM.test(lines[i])) {
-				items.push(lines[i].replace(ORDERED_ITEM, ""));
-				i++;
-			}
-			blocks.push({ type: "ol", items });
+			const collected = collectItems(lines, i, ORDERED_ITEM);
+			i = collected.next;
+			blocks.push({ type: "ol", items: collected.items });
 			continue;
 		}
 		if (line === "") {
@@ -106,6 +104,22 @@ function parseBlocks(source: string): Block[] {
 		blocks.push({ type: "paragraph", text: paraLines.join("\n") });
 	}
 	return blocks;
+}
+
+// Consumes the run of consecutive list items matching `marker`, stripping it
+// from each. Shared by the ul and ol branches, which differ only in the marker.
+function collectItems(
+	lines: readonly string[],
+	start: number,
+	marker: RegExp,
+): { items: string[]; next: number } {
+	const items: string[] = [];
+	let i = start;
+	while (i < lines.length && marker.test(lines[i])) {
+		items.push(lines[i].replace(marker, ""));
+		i++;
+	}
+	return { items, next: i };
 }
 
 function renderBlock(block: Block): Node {
@@ -138,7 +152,7 @@ function renderList(tag: "ul" | "ol", items: string[]): HTMLElement {
 }
 
 function renderParagraph(text: string): Node[] {
-	const lines = text.split("\n").map((l) => l.replace(/ {2}$/, ""));
+	const lines = splitParagraphLines(text);
 	const nodes: Node[] = [];
 	for (let i = 0; i < lines.length; i++) {
 		for (const node of renderInline(lines[i])) nodes.push(node);
@@ -222,20 +236,12 @@ function tokenizeInline(text: string): InlineToken[] {
 	return tokens;
 }
 
+const INLINE_TAG = { strong: "strong", em: "em", code: "code" } as const;
+
 function tokenToNode(token: InlineToken): Node {
 	if (token.type === "text") return document.createTextNode(token.value);
-	if (token.type === "strong") {
-		const el = document.createElement("strong");
-		el.textContent = token.value;
-		return el;
-	}
-	if (token.type === "em") {
-		const el = document.createElement("em");
-		el.textContent = token.value;
-		return el;
-	}
-	if (token.type === "code") {
-		const el = document.createElement("code");
+	if (token.type !== "link") {
+		const el = document.createElement(INLINE_TAG[token.type]);
 		el.textContent = token.value;
 		return el;
 	}

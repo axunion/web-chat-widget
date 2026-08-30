@@ -130,18 +130,16 @@ function createWebStorageStore(
 		save(next) {
 			if (memoryFallback) return;
 			const trimmed = trim(next);
-			try {
-				storage.setItem(key, serialize(trimmed));
-				return;
-			} catch (err) {
-				if (!isQuotaError(err)) return;
-			}
+			// On a quota error, retry once with the newer half; any other
+			// failure is not worth retrying and leaves the store as-is.
 			const halved = trimmed.slice(Math.ceil(trimmed.length / 2));
-			try {
-				storage.setItem(key, serialize(halved));
-				return;
-			} catch (err) {
-				if (!isQuotaError(err)) return;
+			for (const candidate of [trimmed, halved]) {
+				try {
+					storage.setItem(key, serialize(candidate));
+					return;
+				} catch (err) {
+					if (!isQuotaError(err)) return;
+				}
 			}
 			memoryFallback = true;
 			if (!warned) {

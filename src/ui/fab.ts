@@ -36,16 +36,13 @@ export function buildFab(labels: LabelDictionary): FabHandle {
 
 	function setOpen(open: boolean): void {
 		root.setAttribute("aria-expanded", open ? "true" : "false");
-		if (open) root.setAttribute("data-open", "");
-		else root.removeAttribute("data-open");
+		root.toggleAttribute("data-open", open);
 	}
 
 	function setUnread(unread: boolean): void {
-		if (unread) badge.setAttribute("data-visible", "");
-		else badge.removeAttribute("data-visible");
+		badge.toggleAttribute("data-visible", unread);
 	}
 
 	applyLabels(labels);
-	setUnread(false);
 	return { root, setOpen, setUnread, applyLabels };
 }
