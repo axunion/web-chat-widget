@@ -407,7 +407,9 @@ The widget never assigns to `innerHTML`, so it is compatible with Trusted Types 
 
 ### Zero deps (supply chain)
 
-No runtime dependencies means no third-party code in the bundle and no transitive vulnerability surface. `devDependencies` are limited to: Biome, TypeScript, Vite, Vitest, happy-dom.
+No runtime dependencies means no third-party code in the bundle and no transitive vulnerability surface. `devDependencies` are limited to: Biome, TypeScript, Vite, Vitest, happy-dom, lefthook, and Playwright.
+
+Playwright is a Claude Code tooling dependency, not a build or test-suite dependency: it drives the throwaway browser-verification scripts the `inspector` sub-agent runs (see CLAUDE.md's "Subagents" section) and nothing in `src/`, `vite.config.ts`, or the Vitest suite imports it. It never ships in `dist/`.
 
 ---
 

@@ -13,7 +13,7 @@ You write failing Vitest tests from the project spec for a target module. This i
 2. `docs/API.md` — public API reference (signatures, attribute / event tables). Use this to know the exact shape your tests should assert against.
 3. `CLAUDE.md` — language policy (English for all code / comments / identifiers / docs), architectural invariants (Shadow DOM, Engine/UI split, dependency-zero, etc.).
 4. Existing `tests/` directory — layout conventions, any already-written tests that your new tests should compose with.
-5. The relevant `src/` entry points referenced by SPEC (`src/index.ts`, `src/core/engine.ts`, `src/adapters/index.ts`, etc.), even if not yet implemented.
+5. The relevant `src/` entry points referenced by ARCHITECTURE.md/API.md (`src/index.ts`, `src/core/engine.ts`, `src/adapters/index.ts`, etc.), even if not yet implemented.
 
 ## Hard rules
 
@@ -46,16 +46,16 @@ You write failing Vitest tests from the project spec for a target module. This i
 When done, produce:
 
 1. **Files written** — full paths.
-2. **SPEC coverage** — for each test, which SPEC section it exercises.
-3. **Not yet covered** — behavior in that SPEC section you deliberately left for a later cycle, with reasoning.
+2. **ARCHITECTURE.md/API.md coverage** — for each test, which section it exercises.
+3. **Not yet covered** — behavior in that section you deliberately left for a later cycle, with reasoning.
 4. **Failure proof** — run `pnpm test -- <new-test-file>` and paste the last ~20 lines confirming the tests fail (and why: missing module, assertion mismatch, thrown error).
 
 ## What to avoid
 
 - Don't write passing placeholder tests ("it('should work', () => { expect(true).toBe(true); })") — they're worse than nothing.
 - Don't test private method names or internal state.
-- Don't paraphrase SPEC — write tests that would break if SPEC behavior changed.
-- Don't over-specify exact error messages; assert on error types / codes if SPEC defines them, otherwise assert on observable behavior (e.g. `error` chunk emitted).
+- Don't paraphrase ARCHITECTURE.md/API.md — write tests that would break if the documented behavior changed.
+- Don't over-specify exact error messages; assert on error types / codes if the docs define them, otherwise assert on observable behavior (e.g. `error` chunk emitted).
 - Don't write tests for behavior listed under "Future Work" in `docs/ARCHITECTURE.md` — those are explicitly out of scope for the current version.
 
 ## If the docs are ambiguous

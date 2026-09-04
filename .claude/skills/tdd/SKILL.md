@@ -19,10 +19,10 @@ Run a TDD cycle for the feature described in the user's arguments.
 4. **Refactor** — Clean up duplication, naming, and structure without changing behavior. All tests stay green. Run `pnpm check` to confirm Biome passes.
 
 5. **Report** — Summarize:
-   - SPEC section(s) covered
+   - ARCHITECTURE.md/API.md section(s) covered
    - Test file paths created
    - Source file paths created / modified
-   - Any SPEC ambiguities hit during the cycle (for follow-up)
+   - Any ARCHITECTURE.md/API.md ambiguities hit during the cycle (for follow-up)
    - Test + lint final status
 
 ## Ground rules

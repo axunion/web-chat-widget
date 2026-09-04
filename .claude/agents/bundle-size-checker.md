@@ -36,7 +36,7 @@ You audit the built bundle for size regressions. The widget ships with **zero ru
 
 1. **Status** — one of `Clean` / `Risk` / `Blocker`.
 2. **Sizes table** — one row per asset, columns `file | metric | baseline | current | delta | pct`. Mark rows over threshold with ⚠ (Risk) or 🚫 (Blocker).
-3. **Findings** — for each Risk/Blocker: which file, which metric, the threshold violated, and the smallest plausible cause. Cite SPEC section if a supply-chain rule is implicated.
+3. **Findings** — for each Risk/Blocker: which file, which metric, the threshold violated, and the smallest plausible cause. Cite the ARCHITECTURE.md section if a supply-chain rule is implicated.
 4. **Suggested next step** — one of:
    - `Update baseline` — when the regression is intentional (new feature, accepted by maintainer).
    - `Revert / refactor` — when the cost is not justified.

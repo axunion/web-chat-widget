@@ -7,7 +7,7 @@ paths:
 
 # UI layer rules (Shadow DOM, XSS safety)
 
-These rules apply inside `src/ui/` and the Custom Element entry points. Violating any of them breaks a SPEC invariant — prefer refactoring over "just this once" exceptions.
+These rules apply inside `src/ui/` and the Custom Element entry points. Violating any of them breaks an ARCHITECTURE.md invariant — prefer refactoring over "just this once" exceptions.
 
 ## DOM construction
 

@@ -39,7 +39,7 @@ Single-test execution: `pnpm vitest run path/to/file.test.ts`. Name filter: `pnp
 
 ## Architectural Invariants
 
-Hard constraints locked in SPEC — never violate these:
+Hard constraints locked in ARCHITECTURE.md — never violate these:
 
 - **Zero runtime dependencies.** `dependencies` / `peerDependencies` stay empty. Write your own Markdown parser, SSE parser, etc.
 - **UI lives inside Shadow DOM.** `Custom Element + Shadow DOM` blocks external CSS bleed. Styles are embedded as strings in the JS bundle and injected as `<style>` into the Shadow Root.
@@ -80,7 +80,7 @@ This project is **test-first / red-green-refactor**. Write failing tests under `
 
 ### Cycle
 
-1. **Red** — write one failing test that corresponds to a SPEC behavior (`pnpm test` is red).
+1. **Red** — write one failing test that corresponds to an ARCHITECTURE.md/API.md behavior (`pnpm test` is red).
 2. **Green** — write the minimum code to make it pass. No speculative generalization.
 3. **Refactor** — clean up duplication, naming, structure while keeping tests green.
 
@@ -101,9 +101,15 @@ This project is **test-first / red-green-refactor**. Write failing tests under `
 
 ### Tooling
 
-- [test-writer sub-agent](./.claude/agents/test-writer.md) — generates failing tests from SPEC (RED step).
+- [test-writer sub-agent](./.claude/agents/test-writer.md) — generates failing tests from ARCHITECTURE.md/API.md (RED step).
 - [security-reviewer sub-agent](./.claude/agents/security-reviewer.md) — audits XSS / CSP / link sanitization / prompt-injection.
 - `/tdd <feature>` skill ([.claude/skills/tdd/SKILL.md](./.claude/skills/tdd/SKILL.md)) — runs the full TDD cycle.
+
+### Structural vs. visual correctness
+
+- **Structural correctness** — state transitions, API responses, DOM output with a right answer — belongs in Vitest and is what [tester](./.claude/agents/tester.md) verifies automatically (`pnpm test`, `pnpm typecheck`, `pnpm check`).
+- **Visual/subjective judgment** — does the panel look right, spacing, animation feel — no script can reliably judge this. This stays a human-in-the-loop check via `pnpm dev` / `pnpm demo`, or [inspector](./.claude/agents/inspector.md) for the cases in the "When to spawn sub-agents" visual-verification gate below.
+- Persist a regression test only for a durable, worth-protecting flow — not a one-off "let me verify this specific change" check. See `.claude/rules/tests.md`'s "Coverage is not a target".
 
 ### Conditional rules (`.claude/rules/`)
 
@@ -130,8 +136,30 @@ Defined in `lefthook.yml`. Installed automatically by `pnpm install`.
 ### Sub-agents
 
 - [bundle-size-checker](./.claude/agents/bundle-size-checker.md) — after `pnpm build`, compares `dist/chat-widget.iife.js` raw/gzip sizes against [bundle-size-baseline.json](./bundle-size-baseline.json). Reports Blocker / Risk / Clean. Read-only — baseline updates are a human decision.
-- [test-writer](./.claude/agents/test-writer.md) — RED step of TDD; writes failing Vitest tests from SPEC.
+- [test-writer](./.claude/agents/test-writer.md) — RED step of TDD; writes failing Vitest tests from ARCHITECTURE.md/API.md.
 - [security-reviewer](./.claude/agents/security-reviewer.md) — XSS / CSP / link sanitization / prompt-injection audit.
+- [researcher](./.claude/agents/researcher.md) — looks up current Vite / Vitest / TypeScript API usage and the OpenAI-compatible SSE contract before implementation. Scopes the `context7` MCP doc-lookup server to itself only (never registered project-wide in `.mcp.json`).
+- [reviewer](./.claude/agents/reviewer.md) — general diff review (scope, simplicity, correctness), independent of `security-reviewer`'s security-only focus.
+- [tester](./.claude/agents/tester.md) — runs `pnpm test` / `pnpm typecheck` / `pnpm check` after a change and reports pass/fail.
+- [inspector](./.claude/agents/inspector.md) — drives the widget in a real (Playwright) browser to verify rendered UI: screenshots plus overflow checks across viewports.
+
+### When to spawn sub-agents
+
+Three tiers of engagement, based on risk and size:
+
+- **Trivial** (one-line fixes, typos, config tweaks): implement directly, no agents.
+- **Non-trivial but contained** (a self-contained change in one area): implement directly. Optionally run [researcher](./.claude/agents/researcher.md) first if the change leans on an unfamiliar or fast-moving external API, or the built-in `Explore` agent to confirm an existing convention. Afterward, run [reviewer](./.claude/agents/reviewer.md) and [tester](./.claude/agents/tester.md) in parallel, automatically — no need to ask first, since both are read-only / test-only and exist specifically to catch blind spots in self-review.
+- **Large, ambiguous, or high-risk** (spans many files, substantially touches `src/core/engine.ts`, `src/core/store.ts`, `src/adapters/sse-parse.ts`, or `src/adapters/openai-sse.ts`, or the task itself is genuinely ambiguous): drive it with the built-in `/goal` command, with a completion condition that explicitly requires `reviewer` and `tester` passing (not just "implement X" — `/goal`'s evaluator has no built-in knowledge that these agents exist, so an omitted condition lets the loop end right after implementation).
+
+The main conversation writes the code at every tier — only the scaffolding around it changes (none, then verification after, then research before and verification after with iteration). None of `researcher` / `reviewer` / `tester` / `inspector` write production code: a write agent enforces no tool restriction worth having, its real product is the working tree rather than the summary it returns, and every retry pass would re-spawn it with no memory of the code it just wrote.
+
+**Visual verification is a separate axis, not a fourth tier** — it's keyed to whether a change touches rendered UI, independent of how risky the change is:
+
+- No rendered surface touched: skip, no browser involved.
+- Small, isolated, single-property tweak: a quick manual glance at `pnpm dev` is enough.
+- Layout that can vary by viewport, a change spanning multiple UI components sharing styles, or chasing a reported visual bug: run [inspector](./.claude/agents/inspector.md). Give it the full picture — it has no memory of the conversation — and treat a fix as unverified until a re-run comes back clean.
+
+This gate needs no confirmation to run, but isn't automatic for every UI change either — weigh it against the three cases above each time.
 
 ### Skills
 

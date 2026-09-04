@@ -12,7 +12,7 @@ This package ships with **no runtime dependencies**. It's a headline feature (se
 
 - `dependencies` and `peerDependencies` in `package.json` stay **empty**.
 - `src/**/*.ts` must not import from any third-party package — only native Web APIs, TypeScript's own types, and other files in `src/`.
-- If an implementation feels like it needs a library (Markdown parser, SSE parser, DOM utility, sanitizer), write it yourself as a small module. SPEC already calls this out for Markdown (§6) and SSE (§8.2.1 via `src/adapters/sse-parse.ts`).
+- If an implementation feels like it needs a library (Markdown parser, SSE parser, DOM utility, sanitizer), write it yourself as a small module. ARCHITECTURE.md already calls this out for Markdown (§Markdown scope) and SSE (§Adapter Contract via `src/adapters/sse-parse.ts`).
 
 ## Allowed `devDependencies` (as of now)
 
@@ -22,6 +22,8 @@ This package ships with **no runtime dependencies**. It's a headline feature (se
 - `vitest`
 - `happy-dom` (test environment — added when tests start requiring it)
 - `@testing-library/dom` (test helper — optional; add only if tests genuinely need it)
+- `lefthook` (git hooks)
+- `playwright` (Claude Code tooling only — drives the `inspector` sub-agent's throwaway browser-verification scripts; nothing in `src/` or the Vitest suite imports it, see ARCHITECTURE.md §Zero deps)
 
 Anything else needs justification. Before adding a new devDependency, update ARCHITECTURE.md §Zero deps with the reason.
 

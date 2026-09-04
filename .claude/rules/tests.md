@@ -30,9 +30,9 @@ Applies when touching anything under `tests/` or the Vitest config. The project 
 ## TDD discipline
 
 - New tests should fail on first run. Placeholder "it('works', () => expect(true).toBe(true))" tests are worse than none.
-- Before writing production code to make a test pass, confirm you've read the relevant SPEC section and the test covers what SPEC says.
-- If SPEC is ambiguous, stop and fix SPEC — don't let tests pin down behavior that should have come from SPEC first.
+- Before writing production code to make a test pass, confirm you've read the relevant ARCHITECTURE.md/API.md section and the test covers what it says.
+- If ARCHITECTURE.md/API.md is ambiguous, stop and fix the docs — don't let tests pin down behavior that should have come from the docs first.
 
 ## Coverage is not a target
 
-Aim for meaningful behavioral coverage of SPEC sections. Do not write tests whose only purpose is to move a coverage number.
+Aim for meaningful behavioral coverage of ARCHITECTURE.md/API.md sections. Do not write tests whose only purpose is to move a coverage number.
