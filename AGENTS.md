@@ -1,11 +1,6 @@
-<!-- KEEP IN SYNC with CLAUDE.md — these two files are mirrors.
-     Edit one, then copy the change to the other.
-     Everything from ## Project Overview onward must stay identical between the two files. -->
-
 # AGENTS.md
 
-Agent guide for this repository. Applies to any AI coding agent (Codex, Cursor, etc.).
-For Claude Code specifically, see [CLAUDE.md](./CLAUDE.md) — the body below is kept identical.
+Agent guide for this repository. Applies to any AI coding agent (Codex, Cursor, etc.). This file is the single source of truth for that guidance — Claude Code loads it automatically via an `@AGENTS.md` import in [CLAUDE.md](./CLAUDE.md), so edit only this file; CLAUDE.md needs no manual copy.
 
 ## Project Overview
 
@@ -183,8 +178,4 @@ This gate needs no confirmation to run, but isn't automatic for every UI change 
 
 **Migration note:** `docs/SPEC.md` has been replaced by `docs/ARCHITECTURE.md` (English). `docs/API.md` has been rewritten in English. No further Japanese docs remain.
 
-**Mirroring:** `CLAUDE.md` (Claude Code guide) and `AGENTS.md` (generic agent guide at the repo root) are kept identical from `## Project Overview` onward. When you edit one, copy the change to the other and verify with:
-```bash
-diff <(grep -A9999 "^## Project Overview" CLAUDE.md) \
-     <(grep -A9999 "^## Project Overview" AGENTS.md)
-```
+**Single source of truth:** `AGENTS.md` is the canonical agent guide. `CLAUDE.md` no longer carries its own copy — it pulls this file in verbatim via Claude Code's `@AGENTS.md` import syntax. Edit `AGENTS.md` only; `CLAUDE.md` picks up the change automatically the next time it's loaded, so no manual copy or diff check is needed.
