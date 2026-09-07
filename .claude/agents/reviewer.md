@@ -27,7 +27,7 @@ conversation, which made the change, to address.
    naming) — only comments explaining non-obvious *why* should survive.
 6. **Zero deps / language policy**: `dependencies` / `peerDependencies` in
    `package.json` stay empty (see `.claude/rules/zero-deps.md`); all code, comments,
-   and commit messages are English (see CLAUDE.md's Language Policy).
+   and commit messages are English (see AGENTS.md's Language section).
 
 ## Output
 

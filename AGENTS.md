@@ -1,37 +1,60 @@
 # AGENTS.md
 
-Agent guide for this repository. Applies to any AI coding agent (Codex, Cursor, etc.). This file is the single source of truth for that guidance — Claude Code loads it automatically via an `@AGENTS.md` import in [CLAUDE.md](./CLAUDE.md), so edit only this file; CLAUDE.md needs no manual copy.
+Agent guide for this repository. Applies to any AI coding agent (Codex, Cursor, etc.). Shared guidance goes here and reaches Claude Code via the `@AGENTS.md` import in [CLAUDE.md](./CLAUDE.md); Claude Code–specific tooling (sub-agents, skills, auto-loaded rules) is written directly in CLAUDE.md instead, since it doesn't apply to other agents.
 
-## Project Overview
+## Approach
 
-`web-chat-widget` is a zero-dependency, Web-standards-only floating AI chat UI that can be embedded in any web page. It supports both npm import and `<script>` tag embedding.
+- **Change scope.** Change only what was requested. Don't "improve" adjacent code, comments, or formatting; match the existing style. Delete code your own change makes unused, never leave it commented out. Point out pre-existing dead code only; don't delete, split, or refactor it unless asked.
+- **Implementation size.** Don't add unrequested features, abstractions, or configurability. Extract a helper only when it's used in 3+ places; otherwise inline it. Don't write error handling for cases that can't happen.
+- **Uncertainty.** When more than one interpretation is possible, present the options instead of silently picking one.
 
-**Status**: All features are implemented, including feature wave 2 (engine busy/stop state, save-on-error, adapter timeouts, declarative config, focus management, unread badge, code-block copy button, textarea auto-grow, CI). Core layer, adapter layer, UI layer, declarative entry (`element.ts`) / IIFE entry (`iife.ts`), `ChatStore` (history persistence, see API.md §5), and `ChatWidget.clear()` / `retry()` are all shipped. The Vite library-mode build pipeline (ESM + IIFE + `.d.ts`) and three demo pages are working:
-- Developer playground: `index.html` + `src/main.ts` (run via `pnpm dev`)
-- Production-shaped sample: `demo/sample-service.html` (run via `pnpm demo`, loads the IIFE via `<script>`)
-- Live-backend sample: `demo/backend-live.html` (run via `pnpm demo` with `examples/backend` running; exercises the real SSE adapter)
+## Language
 
-No `(planned)` markers remain in ARCHITECTURE.md / API.md. `CHANGELOG.md` has not been added yet — that is deliberately deferred until the first release is tagged (see README's Documentation section).
+Default to the user's language for everything interactive — chat replies, plan-mode proposals, clarifying questions, and any other back-and-forth during the session.
 
-Design decisions and architectural invariants live in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Public API signatures live in [docs/API.md](./docs/API.md). These are the single sources of truth.
+Switch to English only for durable artifacts: things other people or tools will read after the session ends — in-code comments, console/log/error output, AI-readable instruction files, and reader-facing docs (README and the like). Scratch notes and other throwaway dev artifacts stay in the user's language.
 
-## Dev Commands
+In this repository the durable-artifact rule has no exceptions: **everything except live chat is English, all the time.** That covers all code, identifiers, comments, commit messages, and documentation (`CLAUDE.md`, `AGENTS.md`, `README.md`, and everything under `docs/`). Code comments stay minimal — add one only when the *why* is non-obvious — and are written in English. The only Japanese allowed is live conversation with the user.
 
-Package manager: pnpm (`pnpm-lock.yaml` present). Node version pinned to `24.16.0` via `devEngines` (`onFail: warn`).
+## Testing
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm dev` | Vite dev server. Serves `index.html` + `src/main.ts` (ESM direct import). Includes HMR and a control panel. |
-| `pnpm build` | Full build: ESM library → IIFE → `.d.ts` emit → rewrite `.ts` refs in `.d.ts` → copy `demo/*.html` to `dist/`. Runs: `vite build && vite build --mode iife && tsc -p tsconfig.build.json && node scripts/rewrite-dts-extensions.mjs && node scripts/copy-demo.mjs` |
-| `pnpm preview` | Serve `dist/` via `vite preview`. Verify the built IIFE and demo HTML at `http://localhost:4173/sample-service.html`. |
-| `pnpm demo` | `pnpm build && pnpm preview` — build then immediately preview. |
-| `pnpm typecheck` | Type-check only (`tsc --noEmit`). Covers all of `src/`. |
-| `pnpm check` | Biome lint + format check. |
-| `pnpm fix` | Biome auto-fix. |
-| `pnpm test` | Run Vitest once. |
-| `pnpm test:watch` | Vitest watch mode. |
+Write tests before implementation — they are your success criteria. In this repository that's not a preference but a strict rule: **test-first / red-green-refactor**. Write a failing test under `tests/` before writing any production code under `src/` (same commit is fine, but no test = no merge).
 
-Single-test execution: `pnpm vitest run path/to/file.test.ts`. Name filter: `pnpm vitest run -t "test name"`.
+- Test observable outcomes and edge cases, not implementation details — assert via public API entry points only.
+- Each test is fully self-contained; no shared mutable state between tests.
+- One `it(...)` per scenario. No kitchen-sink tests.
+- Keep `pnpm test:watch` running during development to watch red → green live.
+- **Exceptions** (no test required): type-only changes, demo page visual tweaks, documentation, config files.
+- Structural correctness (state transitions, API responses, DOM output with a right answer) belongs in a test. Visual/subjective judgment (does the panel look right, spacing, animation feel) can't be scripted reliably — verify it by hand via `pnpm dev` / `pnpm demo`.
+- Persist a regression test only for a durable, worth-protecting flow — not a one-off "let me verify this specific change" check.
+
+### Cycle
+
+1. **Red** — write one failing test that corresponds to an ARCHITECTURE.md/API.md behavior (`pnpm test` is red).
+2. **Green** — write the minimum code to make it pass. No speculative generalization.
+3. **Refactor** — clean up duplication, naming, structure while keeping tests green.
+
+### Directory layout
+
+- Mirror `src/` paths under `tests/`: e.g. `src/core/markdown.ts` → `tests/core/markdown.test.ts`.
+- Multi-module integration tests go in `tests/integration/`.
+- Fixtures under `tests/fixtures/` — keep them small and text-based.
+- Vitest environment: happy-dom (required for Custom Elements / Shadow DOM).
+
+## Commits
+
+Format — plain prose, no prefixes or labels (`feat:`, `fix:`, and the like):
+
+```
+<summary: imperative mood, ≤70 chars, no trailing period>
+
+<motivation: one sentence, only when not evident from the diff>
+
+- <change bullets: only for 2+ distinct changes>
+```
+
+- Never commit secrets (`*.key`, `*.pem`, `credentials*`).
+- Never use `--no-verify`. Use `--amend` only when explicitly asked; default to a new commit.
 
 ## Architectural Invariants
 
@@ -69,113 +92,3 @@ Each document has exactly one audience — keep the separation (no tutorial pros
 - [examples/backend/README.md](./examples/backend/README.md) — server-side contract, runnable Hono reference proxy, provider adaptation, production checklist. English.
 
 Always update ARCHITECTURE.md and/or API.md before implementing. Never let the implementation drift ahead of these docs. New API signatures must be reflected in API.md; design decisions and invariants go in ARCHITECTURE.md.
-
-## Test-Driven Development (TDD)
-
-This project is **test-first / red-green-refactor**. Write failing tests under `tests/` before writing any production code under `src/`.
-
-### Cycle
-
-1. **Red** — write one failing test that corresponds to an ARCHITECTURE.md/API.md behavior (`pnpm test` is red).
-2. **Green** — write the minimum code to make it pass. No speculative generalization.
-3. **Refactor** — clean up duplication, naming, structure while keeping tests green.
-
-### Fixed rules
-
-- Every implementation change must be preceded by a corresponding test (same commit is fine, but no test = no merge).
-- Tests assert on **behavior**, not internal implementation. Use public API entry points only.
-- One `it(...)` per scenario. No kitchen-sink tests.
-- Keep `pnpm test:watch` running during development to watch red → green live.
-- **Exceptions** (no test required): type-only changes, demo page visual tweaks, documentation, config files.
-
-### Directory layout
-
-- Mirror `src/` paths under `tests/`: e.g. `src/core/markdown.ts` → `tests/core/markdown.test.ts`.
-- Multi-module integration tests go in `tests/integration/`.
-- Fixtures under `tests/fixtures/` — keep them small and text-based.
-- Vitest environment: happy-dom (required for Custom Elements / Shadow DOM).
-
-### Tooling
-
-- [test-writer sub-agent](./.claude/agents/test-writer.md) — generates failing tests from ARCHITECTURE.md/API.md (RED step).
-- [security-reviewer sub-agent](./.claude/agents/security-reviewer.md) — audits XSS / CSP / link sanitization / prompt-injection.
-- `/tdd <feature>` skill ([.claude/skills/tdd/SKILL.md](./.claude/skills/tdd/SKILL.md)) — runs the full TDD cycle.
-
-### Structural vs. visual correctness
-
-- **Structural correctness** — state transitions, API responses, DOM output with a right answer — belongs in Vitest and is what [tester](./.claude/agents/tester.md) verifies automatically (`pnpm test`, `pnpm typecheck`, `pnpm check`).
-- **Visual/subjective judgment** — does the panel look right, spacing, animation feel — no script can reliably judge this. This stays a human-in-the-loop check via `pnpm dev` / `pnpm demo`, or [inspector](./.claude/agents/inspector.md) for the cases in the "When to spawn sub-agents" visual-verification gate below.
-- Persist a regression test only for a durable, worth-protecting flow — not a one-off "let me verify this specific change" check. See `.claude/rules/tests.md`'s "Coverage is not a target".
-
-### Conditional rules (`.claude/rules/`)
-
-Auto-loaded by Claude Code when the matched path is opened. Minimal invariant reminders.
-
-| Rule file | Applied to |
-| --- | --- |
-| [shadow-dom-ui.md](./.claude/rules/shadow-dom-ui.md) | `src/ui/**`, `src/element.ts`, `src/iife.ts` |
-| [adapters.md](./.claude/rules/adapters.md) | `src/adapters/**` |
-| [zero-deps.md](./.claude/rules/zero-deps.md) | `package.json`, `src/**/*.ts` |
-| [tests.md](./.claude/rules/tests.md) | `tests/**`, `vitest.config.*` |
-
-## Harness Automation
-
-### Git hooks (lefthook, pre-commit)
-
-Defined in `lefthook.yml`. Installed automatically by `pnpm install`.
-
-| Hook | Role |
-| --- | --- |
-| zero-deps-guard | Blocks commit when `package.json` is staged and `dependencies` / `peerDependencies` are non-empty. Enforces the zero-deps invariant (see [ARCHITECTURE.md](./docs/ARCHITECTURE.md#zero-deps-supply-chain) and [zero-deps.md](./.claude/rules/zero-deps.md)). |
-| biome | Runs `pnpm exec biome check --write` on staged `src/**/*.{ts,tsx,js}` files and auto-re-stages the fixes. |
-
-### Sub-agents
-
-- [bundle-size-checker](./.claude/agents/bundle-size-checker.md) — after `pnpm build`, compares `dist/chat-widget.iife.js` raw/gzip sizes against [bundle-size-baseline.json](./bundle-size-baseline.json). Reports Blocker / Risk / Clean. Read-only — baseline updates are a human decision.
-- [test-writer](./.claude/agents/test-writer.md) — RED step of TDD; writes failing Vitest tests from ARCHITECTURE.md/API.md.
-- [security-reviewer](./.claude/agents/security-reviewer.md) — XSS / CSP / link sanitization / prompt-injection audit.
-- [researcher](./.claude/agents/researcher.md) — looks up current Vite / Vitest / TypeScript API usage and the OpenAI-compatible SSE contract before implementation. Scopes the `context7` MCP doc-lookup server to itself only (never registered project-wide in `.mcp.json`).
-- [reviewer](./.claude/agents/reviewer.md) — general diff review (scope, simplicity, correctness), independent of `security-reviewer`'s security-only focus.
-- [tester](./.claude/agents/tester.md) — runs `pnpm test` / `pnpm typecheck` / `pnpm check` after a change and reports pass/fail.
-- [inspector](./.claude/agents/inspector.md) — drives the widget in a real (Playwright) browser to verify rendered UI: screenshots plus overflow checks across viewports.
-
-### When to spawn sub-agents
-
-Three tiers of engagement, based on risk and size:
-
-- **Trivial** (one-line fixes, typos, config tweaks): implement directly, no agents.
-- **Non-trivial but contained** (a self-contained change in one area): implement directly. Optionally run [researcher](./.claude/agents/researcher.md) first if the change leans on an unfamiliar or fast-moving external API, or the built-in `Explore` agent to confirm an existing convention. Afterward, run [reviewer](./.claude/agents/reviewer.md) and [tester](./.claude/agents/tester.md) in parallel, automatically — no need to ask first, since both are read-only / test-only and exist specifically to catch blind spots in self-review.
-- **Large, ambiguous, or high-risk** (spans many files, substantially touches `src/core/engine.ts`, `src/core/store.ts`, `src/adapters/sse-parse.ts`, or `src/adapters/openai-sse.ts`, or the task itself is genuinely ambiguous): drive it with the built-in `/goal` command, with a completion condition that explicitly requires `reviewer` and `tester` passing (not just "implement X" — `/goal`'s evaluator has no built-in knowledge that these agents exist, so an omitted condition lets the loop end right after implementation).
-
-The main conversation writes the code at every tier — only the scaffolding around it changes (none, then verification after, then research before and verification after with iteration). None of `researcher` / `reviewer` / `tester` / `inspector` write production code: a write agent enforces no tool restriction worth having, its real product is the working tree rather than the summary it returns, and every retry pass would re-spawn it with no memory of the code it just wrote.
-
-**Visual verification is a separate axis, not a fourth tier** — it's keyed to whether a change touches rendered UI, independent of how risky the change is:
-
-- No rendered surface touched: skip, no browser involved.
-- Small, isolated, single-property tweak: a quick manual glance at `pnpm dev` is enough.
-- Layout that can vary by viewport, a change spanning multiple UI components sharing styles, or chasing a reported visual bug: run [inspector](./.claude/agents/inspector.md). Give it the full picture — it has no memory of the conversation — and treat a fix as unverified until a re-run comes back clean.
-
-This gate needs no confirmation to run, but isn't automatic for every UI change either — weigh it against the three cases above each time.
-
-### Skills
-
-- [`/spec-sync`](./.claude/skills/spec-sync/SKILL.md) — cross-references `docs/ARCHITECTURE.md` and `docs/API.md` against `src/` and reports match / missing / extra / divergent. User-triggered only (`disable-model-invocation: true`). Run before releases or after large refactors.
-- [`/tdd`](./.claude/skills/tdd/SKILL.md) — runs a full red-green-refactor cycle for a feature.
-
-## Code Style
-
-- **Biome** for lint and formatting. No `biome.json` is committed — this is deliberate: the project stays on Biome defaults. `pnpm check` must pass.
-- **TypeScript 6**, strict mode + `verbatimModuleSyntax` + `erasableSyntaxOnly`. Use `import type` where required.
-- `tsconfig.json` is `noEmit: true`. Declaration generation is handled by `tsconfig.build.json` (separate from the dev config).
-
-## Language Policy
-
-**Everything is written in English** — this is a hard rule, not a preference:
-
-- All code, identifiers, comments, commit messages, documentation (including `CLAUDE.md`, `AGENTS.md`, `README.md`, and files under `docs/`).
-- Code comments are kept minimal: add them only when the *why* is non-obvious. Write them in English.
-- **The only Japanese allowed** is live conversation with the user (interactive chat).
-
-**Migration note:** `docs/SPEC.md` has been replaced by `docs/ARCHITECTURE.md` (English). `docs/API.md` has been rewritten in English. No further Japanese docs remain.
-
-**Single source of truth:** `AGENTS.md` is the canonical agent guide. `CLAUDE.md` no longer carries its own copy — it pulls this file in verbatim via Claude Code's `@AGENTS.md` import syntax. Edit `AGENTS.md` only; `CLAUDE.md` picks up the change automatically the next time it's loaded, so no manual copy or diff check is needed.
