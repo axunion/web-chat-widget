@@ -21,7 +21,7 @@ Auto-loaded by Claude Code when the matched path is opened. Minimal invariant re
 - [bundle-size-checker](./.claude/agents/bundle-size-checker.md) — after `pnpm build`, compares `dist/chat-widget.iife.js` raw/gzip sizes against [bundle-size-baseline.json](./bundle-size-baseline.json). Reports Blocker / Risk / Clean. Read-only — baseline updates are a human decision.
 - [test-writer](./.claude/agents/test-writer.md) — RED step of TDD; writes failing Vitest tests from ARCHITECTURE.md/API.md.
 - [security-reviewer](./.claude/agents/security-reviewer.md) — XSS / CSP / link sanitization / prompt-injection audit.
-- [researcher](./.claude/agents/researcher.md) — looks up current Vite / Vitest / TypeScript API usage and the OpenAI-compatible SSE contract before implementation. Scopes the `context7` MCP doc-lookup server to itself only (never registered project-wide in `.mcp.json`).
+- [researcher](./.claude/agents/researcher.md) — looks up current Vite / Vitest / TypeScript API usage and the OpenAI-compatible SSE contract before implementation via WebFetch/WebSearch.
 - [reviewer](./.claude/agents/reviewer.md) — general diff review (scope, simplicity, correctness), independent of `security-reviewer`'s security-only focus.
 - [tester](./.claude/agents/tester.md) — runs `pnpm test` / `pnpm typecheck` / `pnpm check` after a change and reports pass/fail.
 - [inspector](./.claude/agents/inspector.md) — drives the widget in a real (Playwright) browser to verify rendered UI: screenshots plus overflow checks across viewports.

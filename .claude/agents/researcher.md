@@ -1,14 +1,9 @@
 ---
 name: researcher
 description: Looks up external, non-codebase knowledge before implementation — current Vite/Vitest/TypeScript API usage, version differences, deprecations, and the OpenAI-compatible SSE contract this project's adapters target. Use proactively at the start of a change that leans on an unfamiliar or fast-moving external API, alongside the built-in Explore agent, which covers this codebase. Read-only, and never explores or edits the project's own source.
-tools: WebFetch, WebSearch, Read, mcp__context7
+tools: WebFetch, WebSearch, Read
 model: sonnet
 effort: medium
-mcpServers:
-  context7:
-    type: stdio
-    command: pnpx
-    args: ["@upstash/context7-mcp@3.0.0"]
 ---
 
 You answer the questions this codebase can't answer about itself: how a third-party
